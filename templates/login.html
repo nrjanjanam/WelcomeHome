@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="register-form">
+    <h2 class="form-title">Welcome Back</h2>
+    <div id="flash-messages"></div>
+    <form id="loginForm" method="POST" action="{{ url_for('login') }}">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" placeholder="John_doe123" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Enter your password" required>
+        </div>
+        <button type="submit" class="submit-button">Sign In</button>
+    </form>
+    <div class="form-footer">
+        <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
+    </div>
+</div>
+{% endblock %}
