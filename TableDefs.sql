@@ -130,10 +130,10 @@ INSERT INTO Role (roleID, rDescription) VALUES
 
 -- Person Data
 -- Password is same as username
-INSERT INTO `` (`userName`,`password`,`fname`,`lname`,`email`) VALUES ('david_donor','885f629202ccdd28dc8f27a0acb87da6:00115ba11846af381ab603871f69f867c70dbdc529f23a856e498a7e181fb35f','David','Brown','david@email.com');
-INSERT INTO `` (`userName`,`password`,`fname`,`lname`,`email`) VALUES ('john_staff','812328ea9d94ac8993356f88606a45ad:9de15d8150e7f0554f471e92692cd153cdd74e90ebd15725cd9ab71363fa5038','John','Anderson','john@welcomehome.org');
-INSERT INTO `` (`userName`,`password`,`fname`,`lname`,`email`) VALUES ('mary_vol','45fae0ae42b2d839d8b1ee938b5df0d9:e22a4ac354df67262278d5fb1bad849ddb310e71806ec3bd72d57f72c6466e02','Mary','Wilson','mary@email.com');
-INSERT INTO `` (`userName`,`password`,`fname`,`lname`,`email`) VALUES ('sara_client','997d7fa3a3b51eb00e876c48c1d247ba:97a22cfe7d5312970a9aa15c8a0f68a7ad90d33a0f14c75578c76083d7290fdf','Sara','Miller','sara@email.com');
+INSERT INTO Person (userName, password, fname, lname, email) VALUES ('david_donor','885f629202ccdd28dc8f27a0acb87da6:00115ba11846af381ab603871f69f867c70dbdc529f23a856e498a7e181fb35f','David','Brown','david@email.com');
+INSERT INTO Person (userName,password,fname,lname,email) VALUES ('john_staff','812328ea9d94ac8993356f88606a45ad:9de15d8150e7f0554f471e92692cd153cdd74e90ebd15725cd9ab71363fa5038','John','Anderson','john@welcomehome.org');
+INSERT INTO Person (userName,password,fname,lname,email) VALUES ('mary_vol','45fae0ae42b2d839d8b1ee938b5df0d9:e22a4ac354df67262278d5fb1bad849ddb310e71806ec3bd72d57f72c6466e02','Mary','Wilson','mary@email.com');
+INSERT INTO Person (userName,password,fname,lname,email) VALUES ('sara_client','997d7fa3a3b51eb00e876c48c1d247ba:97a22cfe7d5312970a9aa15c8a0f68a7ad90d33a0f14c75578c76083d7290fdf','Sara','Miller','sara@email.com');
 
 
 -- Category Data
