@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Find Orders</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='../static/style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="dashboard">
+      <nav class="nav-bar">
+        <div class="nav-brand">Welcome Home</div>
+        <div class="nav-links">
+          <a href="/dashboard" class="nav-link">Dashboard</a>
+          <a href="{{ url_for('logout') }}" class="nav-link logout">Logout</a>
+        </div>
+      </nav>
+
+      <div class="dashboard-content">
+        <section id="find-orders" class="data-section">
+          <h2>Find Orders</h2>
+          <div class="form-container">
+                    <form action="/findOrderItemsAuth" method="POST">
+                        <input type="text" name="OrderID" placeholder="Enter the OrderID" required />
+                        <br>
+                        <input type="submit" value="Submit" class="btn" />
+                    </form>
+          <div class="data-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item ID</th>
+                  <th>Description</th>
+                  <th>Piece Description</th>
+                  <th>Room Number</th>
+                  <th>Shelf Number</th>
+                  <th>Shelf Name</th>
+                  <th>Shelf Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in orders %}
+                <tr>
+                  <td>{{ item.ItemID }}</td>
+                  <td>{{ item.ItemDescription }}</td>
+                  <td>{{ item.PieceDescription }}</td>
+                  <td>{{ item.roomNum }}</td>
+                  <td>{{ item.shelfNum }}</td>
+                  <td>{{ item.ShelfName }}</td>
+                  <td>{{ item.ShelfDescription }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <!-- <div class="button-container">
+            <a href="/dashboard" class="btn">Back to Dashboard</a>
+          </div> -->
+        </section>
+      </div>
+    </div>
+  </body>
+</html>

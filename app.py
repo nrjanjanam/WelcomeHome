@@ -186,6 +186,44 @@ def dashboard():
     finally:
         conn.close()
 
+# Function to find the orders (part c)
+@app.route('/find-orders')
+def find_orders():
+    return render_template('find_orders.html')
+
+# Function to find the orders (part c)
+@app.route('/findOrderItemsAuth', methods=['GET', 'POST'])
+def findOrderItemsAuth():
+    orderID = request.form['OrderID']
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''SELECT 
+                    i.ItemID,
+                    i.iDescription AS ItemDescription,
+                    p.pieceNum,
+                    p.pDescription AS PieceDescription,
+                    p.roomNum,
+                    p.shelfNum,
+                    l.shelf AS ShelfName,
+                    l.shelfDescription AS ShelfDescription
+                FROM 
+                    ItemIn ii
+                JOIN 
+                    Item i ON ii.ItemID = i.ItemID
+                LEFT JOIN 
+                    Piece p ON i.ItemID = p.ItemID
+                LEFT JOIN 
+                    Location l ON p.roomNum = l.roomNum AND p.shelfNum = l.shelfNum
+                WHERE 
+                    ii.orderID = %s'''
+            cursor.execute(query, orderID)
+            data = cursor.fetchall()
+            return render_template('find_orders.html', orders=data)
+    finally:
+        conn.close()    
+
+
 
 if __name__ == '__main__':
     app.run(debug= True)

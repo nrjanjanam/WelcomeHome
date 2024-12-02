@@ -1,102 +1,105 @@
 <!-- templates/dashboard.html -->
-{% extends "base.html" %}
-{% block content %}
+{% extends "base.html" %} {% block content %}
 <div class="dashboard">
-    <nav class="nav-bar">
-        <div class="nav-brand">Welcome Home</div>
-        <div class="nav-links">
-            <a href="#items" class="nav-link">Inventory</a>
-            <a href="#orders" class="nav-link">Orders</a>
-            <a href="#donations" class="nav-link">Donations</a>
-            <a href="{{ url_for('logout') }}" class="nav-link logout">Logout</a>
-        </div>
-    </nav>
-
-    <div class="dashboard-content">
-        <section id="items" class="data-section">
-            <h2>Inventory Items</h2>
-            <div class="data-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Description</th>
-                            <th>Category</th>
-                            <th>Status</th>
-                            <th>Location</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in items %}
-                        <tr>
-                            <td>{{ item.ItemID }}</td>
-                            <td>{{ item.iDescription }}</td>
-                            <td>{{ item.mainCategory }} - {{ item.subCategory }}</td>
-                            <td>{{ "New" if item.isNew else "Used" }}</td>
-                            <td>Room {{ item.roomNum }} - Shelf {{ item.shelfNum }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <section id="orders" class="data-section">
-            <h2>Recent Orders</h2>
-            <div class="data-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Order ID</th>
-                            <th>Client</th>
-                            <th>Supervisor</th>
-                            <th>Date</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for order in orders %}
-                        <tr>
-                            <td>{{ order.orderID }}</td>
-                            <td>{{ order.ClientFName }} {{ order.ClientLName }}</td>
-                            <td>{{ order.SupervisorFName }} {{ order.SupervisorLName }}</td>
-                            <td>{{ order.orderDate }}</td>
-                            <td>{{ order.status }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
-        <section id="donations" class="data-section">
-            <h2>Recent Donations</h2>
-            <div class="data-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Item ID</th>
-                            <th>Description</th>
-                            <th>Category</th>
-                            <th>Donor</th>
-                            <th>Donate Date</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for donation in donations %}
-                        <tr>
-                            <td>{{ donation.ItemID }}</td>
-                            <td>{{ donation.iDescription }}</td>
-                            <td>{{ donation.mainCategory }} - {{ donation.subCategory }}</td>
-                            <td>{{ donation.DonorFName }} {{ donation.DonorLName }}</td>
-                            <td>{{ donation.donateDate }}</td>
-                            <td>{{ "New" if donation.isNew else "Used" }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
+  <nav class="nav-bar">
+    <div class="nav-brand">Welcome Home</div>
+    <div class="nav-links">
+      <a href="#items" class="nav-link">Inventory</a>
+      <a href="#orders" class="nav-link">Orders</a>
+      <a href="#donations" class="nav-link">Donations</a>
+      <a href="{{ url_for('logout') }}" class="nav-link logout">Logout</a>
     </div>
+  </nav>
+
+  <div class="dashboard-content">
+    <section id="items" class="data-section">
+      <h2>Inventory Items</h2>
+      <div class="data-table">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th>Status</th>
+              <th>Location</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            <tr>
+              <td>{{ item.ItemID }}</td>
+              <td>{{ item.iDescription }}</td>
+              <td>{{ item.mainCategory }} - {{ item.subCategory }}</td>
+              <td>{{ "New" if item.isNew else "Used" }}</td>
+              <td>Room {{ item.roomNum }} - Shelf {{ item.shelfNum }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="orders" class="data-section">
+      <h2>Recent Orders</h2>
+      <div class="data-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Client</th>
+              <th>Supervisor</th>
+              <th>Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for order in orders %}
+            <tr>
+              <td>{{ order.orderID }}</td>
+              <td>{{ order.ClientFName }} {{ order.ClientLName }}</td>
+              <td>{{ order.SupervisorFName }} {{ order.SupervisorLName }}</td>
+              <td>{{ order.orderDate }}</td>
+              <td>{{ order.status }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="button-container">
+        <a href="/find-orders" class="btn">Find Orders</a>
+      </div>
+    </section>
+    <section id="donations" class="data-section">
+      <h2>Recent Donations</h2>
+      <div class="data-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Item ID</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th>Donor</th>
+              <th>Donate Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for donation in donations %}
+            <tr>
+              <td>{{ donation.ItemID }}</td>
+              <td>{{ donation.iDescription }}</td>
+              <td>{{ donation.mainCategory }} - {{ donation.subCategory }}</td>
+              <td>{{ donation.DonorFName }} {{ donation.DonorLName }}</td>
+              <td>{{ donation.donateDate }}</td>
+              <td>{{ "New" if donation.isNew else "Used" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
 </div>
 {% endblock %}
