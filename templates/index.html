@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="hero-section">
+    <div class="container">
+        <h1 class="main-title">Welcome to Welcome Home</h1>
+        <p class="subtitle">Connecting donors, volunteers, and refugees to create comfortable homes</p>
+        <div class="cta-buttons">
+            <a href="{{ url_for('login') }}" class="primary-button">Login</a>
+            <a href="{{ url_for('register') }}" class="secondary-button">Create Account</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

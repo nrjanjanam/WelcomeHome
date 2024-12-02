@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="register-form">
+    <h2 class="form-title">Create Your Account</h2>
+    <div id="flash-messages"></div>
+    <form id="registerForm" method="POST" action="{{ url_for('register') }}">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" placeholder="John_doe123" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Enter a secure password" required>
+        </div>
+        <div class="form-group">
+            <label for="fname">First Name</label>
+            <input type="text" id="fname" name="fname" placeholder="John" required>
+        </div>
+        <div class="form-group">
+            <label for="lname">Last Name</label>
+            <input type="text" id="lname" name="lname" placeholder="Doe" required>
+        </div>
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" placeholder="john.doe@example.com" required>
+        </div>
+        <div id="phone-container">
+            <label>Phone Numbers</label>
+            <div class="phone-input">
+                <input type="tel" name="phones" placeholder="+12345678900" required>
+            </div>
+            <button type="button" class="secondary-button" onclick="addPhoneField()">+ Add Another Phone</button>
+        </div>
+        <div class="form-group">
+            <label for="roles">Select Role(s)</label>
+            <select id="roles" name="roles" multiple required>
+                {% for role in roles %}
+                    <option value="{{ role['roleID'] }}">{{ role['roleID'].title() }}</option>
+                {% endfor %}
+            </select>
+            <small class="help-text">Hold Ctrl/Cmd to select multiple roles</small>
+        </div>
+        <button type="submit" class="submit-button">Create Account</button>
+    </form>
+    <div class="form-footer">
+        <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
+    </div>
+</div>
+
+<script>
+    function addPhoneField() {
+        const container = document.getElementById('phone-container');
+        const div = document.createElement('div');
+        div.className = 'phone-input';
+        div.innerHTML = `
+            <input type="tel" name="phones" placeholder="+12345678900" required>
+            <button type="button" class="secondary-button" onclick="removePhoneField(this)">Remove</button>
+        `;
+        container.insertBefore(div, container.lastElementChild);
+    }
+    
+    function removePhoneField(button) {
+        button.parentElement.remove();
+    }
+
+</script>
+{% endblock %}
