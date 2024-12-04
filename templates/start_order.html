@@ -1,0 +1,33 @@
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Start Order</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='../static/style.css') }}" />
+      </head>
+      <body>
+        <div class="dashboard">
+          <nav class="nav-bar">
+            <div class="nav-brand">Welcome Home</div>
+            <div class="nav-links">
+              <a href="/dashboard" class="nav-link">Dashboard</a>
+              <a href="{{ url_for('logout') }}" class="nav-link logout">Logout</a>
+            </div>
+          </nav>
+
+          <div class="dashboard-content">
+            <section id="start-order" class="data-section">
+              <h2>Start an Order</h2>
+              <div class="form-container">
+                <form method="POST" action="/start-order">
+                  <label for="client_username">Client Username:</label>
+                  <input type="text" id="client_username" name="client_username" placeholder="Enter client username" required />
+                  <button type="submit" class="btn">Start Order</button>
+                </form>
+              </div>
+            </section>
+          </div>
+        </div>
+      </body>
+    </html>

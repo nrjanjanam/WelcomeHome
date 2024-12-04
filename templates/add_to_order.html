@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add to Order</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard">
+        <nav class="nav-bar">
+            <div class="nav-brand">Welcome Home</div>
+            <div class="nav-links">
+                <a href="/dashboard" class="nav-link">Dashboard</a>
+                <a href="{{ url_for('logout') }}" class="nav-link logout">Logout</a>
+            </div>
+        </nav>
+
+        <div class="dashboard-content">
+            <section class="data-section">
+                <h2>Add Items to Current Order</h2>
+                <form method="POST" action="/add-to-order">
+                    <label for="category">Select Category:</label>
+                    <select name="category" id="category" required>
+                        {% for category in categories %}
+                        <option value="{{ category }}">{{ category }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <label for="subcategory">Select Subcategory:</label>
+                    <select name="subcategory" id="subcategory" required>
+                        {% for subcategory in subcategories %}
+                        <option value="{{ subcategory }}">{{ subcategory }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <label for="item_id">Select Item:</label>
+                    <select name="item_id" id="item_id" required>
+                        <option value="">--Select an Item--</option>
+                    </select>
+
+                    <button type="submit" class="btn">Add to Order</button>
+                </form>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        const categoryDropdown = document.getElementById('category');
+        const subcategoryDropdown = document.getElementById('subcategory');
+        const itemDropdown = document.getElementById('item_id');
+
+        function fetchItems() {
+            const category = categoryDropdown.value;
+            const subcategory = subcategoryDropdown.value;
+
+            fetch(`/get-items?category=${category}&subcategory=${subcategory}`)
+                .then(response => response.json())
+                .then(data => {
+                    itemDropdown.innerHTML = '<option value="">--Select an Item--</option>';
+                    data.items.forEach(item => {
+                        const option = document.createElement('option');
+                        option.value = item.ItemID;
+                        option.textContent = `${item.ItemID} - ${item.iDescription}`;
+                        itemDropdown.appendChild(option);
+                    });
+                });
+        }
+
+        categoryDropdown.addEventListener('change', fetchItems);
+        subcategoryDropdown.addEventListener('change', fetchItems);
+    </script>
+</body>
+</html>

@@ -252,9 +252,168 @@ def SingleItemAuth():
         # else:
         #     #returns an error message to the html page
         #     error = 'Invalid login or username'
-        return render_template('SingleItem.html' ,error=error,posts=data)
+        return render_template('Singleitem.html' ,error=error,posts=data)
     finally:
         conn.close() 
+
+# Ensure the user is logged in and is a staff member
+def staff_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session or 'staff' not in session.get('roles', []):
+            flash('You must be logged in as staff to access this feature.', 'error')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/start-order', methods=['GET', 'POST'])
+@staff_required
+def start_order():
+    conn = get_db()
+    try:
+        if request.method == 'POST':
+            client_username = request.form.get('client_username')
+
+            # Validate client existence
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT username FROM Person WHERE username = %s", (client_username,))
+                client = cursor.fetchone()
+
+                if not client:
+                    flash('Client username does not exist.', 'error')
+                    return render_template('start_order.html')
+
+                # Create a new order
+                cursor.execute("""
+                    INSERT INTO Ordered (client, supervisor, orderDate)
+                    VALUES (%s, %s, NOW())
+                """, (client_username, session['username']))
+                conn.commit()
+
+                # Get the newly created order ID
+                cursor.execute("SELECT LAST_INSERT_ID() AS orderID")
+                order_id = cursor.fetchone()['orderID']
+
+                # Store order ID in session
+                session['orderID'] = order_id
+                flash(f"Order created successfully! Order ID: {order_id}", 'success')
+                return redirect(url_for('dashboard'))
+
+        return render_template('start_order.html')
+
+    except pymysql.Error as e:
+        conn.rollback()
+        flash(f"Error creating order: {str(e)}", 'error')
+    finally:
+        conn.close()
+
+
+
+@app.route('/add-to-order', methods=['GET', 'POST'])
+@staff_required
+def add_to_order():
+    conn = get_db()
+    try:
+        if request.method == 'POST':
+            category = request.form.get('category')
+            subcategory = request.form.get('subcategory')
+            item_id = request.form.get('item_id')
+
+            # Add item to the current order
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT i.ItemID 
+                    FROM Item i
+                    LEFT JOIN ItemIn ii ON i.ItemID = ii.ItemID
+                    WHERE i.ItemID = %s AND ii.orderID IS NULL
+                """, (item_id,))
+                item = cursor.fetchone()
+
+                if not item:
+                    flash('Item is not available or already ordered.', 'error')
+                    return redirect(url_for('add_to_order'))
+
+                cursor.execute("""
+                    INSERT INTO ItemIn (orderID, ItemID)
+                    VALUES (%s, %s)
+                """, (session['orderID'], item_id))
+                conn.commit()
+
+                flash(f"Item {item_id} added to order {session['orderID']} successfully!", 'success')
+                return redirect(url_for('dashboard'))
+
+        # For GET requests, fetch categories
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT DISTINCT mainCategory 
+                FROM Item i
+                LEFT JOIN ItemIn ii ON i.ItemID = ii.ItemID
+                WHERE ii.orderID IS NULL
+            """)
+            categories = [row['mainCategory'] for row in cursor.fetchall()]
+
+            cursor.execute("""
+                SELECT DISTINCT subCategory 
+                FROM Item i
+                LEFT JOIN ItemIn ii ON i.ItemID = ii.ItemID
+                WHERE ii.orderID IS NULL
+            """)
+            subcategories = [row['subCategory'] for row in cursor.fetchall()]
+
+            return render_template(
+                'add_to_order.html',
+                categories=categories,
+                subcategories=subcategories
+            )
+    finally:
+        conn.close()
+
+@app.route('/get-items')
+@staff_required
+def get_items():
+    category = request.args.get('category')
+    subcategory = request.args.get('subcategory')
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT i.ItemID, i.iDescription
+                FROM Item i
+                LEFT JOIN ItemIn ii ON i.ItemID = ii.ItemID
+                WHERE ii.orderID IS NULL
+                AND i.mainCategory = %s
+                AND i.subCategory = %s
+            """, (category, subcategory))
+            items = cursor.fetchall()
+
+        return jsonify({'items': items})
+    finally:
+        conn.close()
+
+
+
+# # Add a template for starting an order
+# @app.route('/start-order-template')
+# def start_order_template():
+#     return '''
+#     <!DOCTYPE html>
+#     <html>
+#     <head>
+#         <title>Start Order</title>
+#     </head>
+#     <body>
+#         <h1>Start an Order</h1>
+#         <form method="POST" action="/start-order">
+#             <label for="client_username">Client Username:</label>
+#             <input type="text" id="client_username" name="client_username" required>
+#             <br>
+#             <button type="submit">Start Order</button>
+#         </form>
+#     </body>
+#     </html>
+#     '''
+
 
 
 if __name__ == '__main__':
