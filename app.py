@@ -8,7 +8,7 @@ import phonenumbers
 
 app = Flask(__name__, static_url_path='/static')
 app.config.from_object(Config)
-app.secret_key = 'welcome home app 1'
+app.secret_key = 'welcome home app'
 
 @app.route('/')
 def index():
@@ -221,10 +221,43 @@ def findOrderItemsAuth():
             data = cursor.fetchall()
             return render_template('find_orders.html', orders=data)
     finally:
-        conn.close()    
+        conn.close()   
 
+@app.route('/find-Items')
+def find_items():
+    return render_template('Singleitem.html') 
+
+@app.route('/SingleItemAuth', methods=['GET', 'POST'])
+def SingleItemAuth():
+    #grabs information from the forms
+    ItemID = request.form['ItemID']
+    # password = request.form['password']
+    conn = get_db()
+    #cursor used to send queries
+    try:
+        cursor = conn.cursor()
+        #executes query
+        query = 'Select ItemID,pDescription, p.roomNum, p.shelfNum,shelf,shelfDescription from Piece p left join Location l on p.roomNum=l.roomNum and p.shelfNum=l.shelfNum where ItemID=%s'
+        cursor.execute(query, ItemID)#, password))
+        #stores the results in a variable
+        data = cursor.fetchall()
+        #use fetchall() if you are expecting more than 1 data row
+        cursor.close()
+        error = None
+        # if(data):
+        #     #creates a session for the the user
+        #     #session is a built in
+        #     session['username'] = username
+        #     return redirect(url_for('home'))
+        # else:
+        #     #returns an error message to the html page
+        #     error = 'Invalid login or username'
+        return render_template('SingleItem.html' ,error=error,posts=data)
+    finally:
+        conn.close() 
 
 
 if __name__ == '__main__':
-    app.run(debug= True)
+    app.run( debug = True)
+    # app.run('127.0.0.1', 5000, debug = True)
      
