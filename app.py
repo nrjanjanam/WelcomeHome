@@ -8,7 +8,7 @@ import phonenumbers
 
 app = Flask(__name__, static_url_path='/static')
 app.config.from_object(Config)
-app.secret_key = 'welcome home app'
+app.secret_key = 'welcome home app 1'
 
 @app.route('/')
 def index():
