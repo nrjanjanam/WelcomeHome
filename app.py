@@ -309,114 +309,106 @@ def start_order():
 
 
 
+
 @app.route('/add-to-order', methods=['GET', 'POST'])
 @staff_required
 def add_to_order():
     conn = get_db()
     try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT DISTINCT mainCategory FROM Item")
+            categories = [row['mainCategory'] for row in cursor.fetchall()] or []
+
+            cursor.execute("SELECT DISTINCT subCategory FROM Item")
+            subcategories = [row['subCategory'] for row in cursor.fetchall()] or []
+
         if request.method == 'POST':
-            category = request.form.get('category')
-            subcategory = request.form.get('subcategory')
-            item_id = request.form.get('item_id')
+            action = request.form.get('action')
+            print(action)
+            if action == 'find_items':
+                # Fetch items based on category and subcategory
+                category = request.form['category']
+                subcategory = request.form['subcategory']
+                print(category)
+                print(subcategory)
+                #  ItemID = request.form['ItemID']
 
-            # Add item to the current order
-            with conn.cursor() as cursor:
-                cursor.execute("""
-                    SELECT i.ItemID 
-                    FROM Item i
-                    LEFT JOIN ItemIn ii ON i.ItemID = ii.ItemID
-                    WHERE i.ItemID = %s AND ii.orderID IS NULL
-                """, (item_id,))
-                item = cursor.fetchone()
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT i.ItemID, i.iDescription 
+                        FROM Item i
+                        LEFT JOIN ItemIn ii ON i.ItemID = ii.ItemID
+                        WHERE ii.orderID IS NULL 
+                        AND i.mainCategory = %s 
+                        AND i.subCategory = %s
+                    """, (category, subcategory))
+                    items = cursor.fetchall()
 
-                if not item:
-                    flash('Item is not available or already ordered.', 'error')
+                print("Fetched Items:", items)  # Debugging
+                return render_template('add_to_order.html', categories=categories, subcategories=subcategories, items=items, selected_category=category, selected_subcategory=subcategory)
+
+            elif action == 'add_to_order':
+                # Add selected item to the current order
+                item_id = request.form.get('item_id')
+                if not item_id:
+                    flash('No item selected. Please select an item to add to the order.', 'error')
                     return redirect(url_for('add_to_order'))
 
-                cursor.execute("""
-                    INSERT INTO ItemIn (orderID, ItemID)
-                    VALUES (%s, %s)
-                """, (session['orderID'], item_id))
-                conn.commit()
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO ItemIn (orderID, ItemID)
+                        VALUES (%s, %s)
+                    """, (session['orderID'], item_id))
+                    conn.commit()
 
                 flash(f"Item {item_id} added to order {session['orderID']} successfully!", 'success')
                 return redirect(url_for('dashboard'))
 
-        # For GET requests, fetch categories
+        # For GET requests, fetch categories and subcategories
         with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT DISTINCT mainCategory 
-                FROM Item i
-                LEFT JOIN ItemIn ii ON i.ItemID = ii.ItemID
-                WHERE ii.orderID IS NULL
-            """)
-            categories = [row['mainCategory'] for row in cursor.fetchall()]
+            cursor.execute("SELECT DISTINCT mainCategory FROM Item")
+            categories = [row['mainCategory'] for row in cursor.fetchall()] or []
 
-            cursor.execute("""
-                SELECT DISTINCT subCategory 
-                FROM Item i
-                LEFT JOIN ItemIn ii ON i.ItemID = ii.ItemID
-                WHERE ii.orderID IS NULL
-            """)
-            subcategories = [row['subCategory'] for row in cursor.fetchall()]
+            cursor.execute("SELECT DISTINCT subCategory FROM Item")
+            subcategories = [row['subCategory'] for row in cursor.fetchall()] or []
 
-            return render_template(
-                'add_to_order.html',
-                categories=categories,
-                subcategories=subcategories
-            )
-    finally:
-        conn.close()
+        print("Categories:", categories)  # Debugging
+        print("Subcategories:", subcategories)  # Debugging
 
-@app.route('/get-items')
-@staff_required
-def get_items():
-    category = request.args.get('category')
-    subcategory = request.args.get('subcategory')
-
-    conn = get_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT i.ItemID, i.iDescription
-                FROM Item i
-                LEFT JOIN ItemIn ii ON i.ItemID = ii.ItemID
-                WHERE ii.orderID IS NULL
-                AND i.mainCategory = %s
-                AND i.subCategory = %s
-            """, (category, subcategory))
-            items = cursor.fetchall()
-
-        return jsonify({'items': items})
+        return render_template('add_to_order.html', categories=categories, subcategories=subcategories, items=None)
     finally:
         conn.close()
 
 
+# @app.route('/get-items')
+# @staff_required
+# def get_items():
+#     category = request.args.get('category')
+#     subcategory = request.args.get('subcategory')
 
-# # Add a template for starting an order
-# @app.route('/start-order-template')
-# def start_order_template():
-#     return '''
-#     <!DOCTYPE html>
-#     <html>
-#     <head>
-#         <title>Start Order</title>
-#     </head>
-#     <body>
-#         <h1>Start an Order</h1>
-#         <form method="POST" action="/start-order">
-#             <label for="client_username">Client Username:</label>
-#             <input type="text" id="client_username" name="client_username" required>
-#             <br>
-#             <button type="submit">Start Order</button>
-#         </form>
-#     </body>
-#     </html>
-#     '''
+#     conn = get_db()
+#     try:
+#         with conn.cursor() as cursor:
+#             cursor.execute("""
+#                 SELECT i.ItemID, i.iDescription
+#                 FROM Item i
+#                 LEFT JOIN ItemIn ii ON i.ItemID = ii.ItemID
+#                 WHERE ii.orderID IS NULL
+#                 AND i.mainCategory = %s
+#                 AND i.subCategory = %s
+#             """, (category, subcategory))
+#             items = cursor.fetchall()
+
+#         return jsonify({'items': items})
+#     finally:
+#         conn.close()
+
+
 
 
 
 if __name__ == '__main__':
-    app.run( debug = True)
+    # app.run( debug = True)
     # app.run('127.0.0.1', 5000, debug = True)
+    app.run('127.0.0.1', 5000, debug = True)
      
