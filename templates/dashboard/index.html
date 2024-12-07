@@ -1,0 +1,37 @@
+{% extends "dashboard/base.html" %}
+{% block dashboard_content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>Total Items</h3>
+        <div class="stat-value">{{ stats.total_items }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Total Orders</h3>
+        <div class="stat-value">{{ stats.total_orders }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Monthly Donations</h3>
+        <div class="stat-value">{{ stats.monthly_donations }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Monthly Orders</h3>
+        <div class="stat-value">{{ stats.monthly_orders }}</div>
+    </div>
+</div>
+
+<div class="recent-activity">
+    <h2>Recent Activity</h2>
+    <div class="activity-list">
+        {% for activity in recent_activity %}
+        <div class="activity-item">
+            <div class="activity-icon {{ activity.type.lower() }}"></div>
+            <div class="activity-details">
+                <span class="activity-type">{{ activity.type }}</span>
+                <span class="activity-date">{{ activity.date.strftime('%Y-%m-%d') }}</span>
+                <span class="activity-person">{{ activity.fname }} {{ activity.lname }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

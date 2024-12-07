@@ -1,49 +1,28 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Prepare Order</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='style.css') }}"
+{% extends "dashboard/base.html" %}
+{% block dashboard_content %}
+<div class="prepare-order">
+  <h2>Prepare Order</h2>
+  <form method="POST">
+    <label for="orderID">Enter Order ID:</label>
+    <input
+      type="text"
+      id="orderID"
+      name="orderID"
+      placeholder="Order ID"
+      required
     />
-  </head>
-  <body>
-    <div class="dashboard">
-      <nav class="nav-bar">
-        <div class="nav-brand">Welcome Home</div>
-        <div class="nav-links">
-          <a href="/dashboard" class="nav-link">Dashboard</a>
-          <a href="{{ url_for('logout') }}" class="nav-link logout">Logout</a>
-        </div>
-      </nav>
-
-      <div class="prepare-order">
-        <h2>Prepare Order</h2>
-        <form method="POST">
-          <label for="orderID">Enter Order ID:</label>
-          <input
-            type="text"
-            id="orderID"
-            name="orderID"
-            placeholder="Order ID"
-            required
-          />
-          <br />
-          <button type="submit" class="btn">Prepare</button>
-        </form>
-        {% with messages = get_flashed_messages() %} {% if messages %}
-        <ul>
-          {% for message in messages %}
-          <li>{{ message }}</li>
-          {% endfor %}
-        </ul>
-        {% endif %} {% endwith %}
-        <div class="button-container">
-          <a href="/dashboard" class="btn">Back to Dashboard</a>
-        </div>
-      </div>
-    </div>
-  </body>
-</html>
+    <br />
+    <button type="submit" class="btn">Prepare</button>
+  </form>
+  {% with messages = get_flashed_messages() %} {% if messages %}
+  <ul>
+    {% for message in messages %}
+    <li>{{ message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %} {% endwith %}
+  <div class="button-container">
+    <a href="/dashboard" class="btn">Back to Dashboard</a>
+  </div>
+</div>
+{% endblock %}

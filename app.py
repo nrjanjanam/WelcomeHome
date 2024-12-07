@@ -135,18 +135,45 @@ def register():
                 
             except pymysql.Error as e:
                 conn.rollback()
-                flash(f'Registration unsuccessful: {str(e)}', 'success')
+                flash(f'Registration unsuccessful: {str(e)}', 'error')
                 
         return render_template('register.html', roles = roles)
     
     finally:
                 conn.close()
 
-
 @app.route('/logout')
 def logout():
     session.clear()
+    flash(f'Logged out successfully', 'success')
     return redirect(url_for('index'))
+
+@app.route('/user-details')
+@login_required
+def user_details():
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT p.*, GROUP_CONCAT(r.roleID) as roles
+                FROM Person p
+                LEFT JOIN Act a ON p.userName = a.userName
+                LEFT JOIN Role r ON a.roleID = r.roleID
+                WHERE p.userName = %s
+                GROUP BY p.userName
+            """, (session['username'],))
+            user = cursor.fetchone()
+            
+            cursor.execute("""
+                SELECT phone 
+                FROM PersonPhone 
+                WHERE userName = %s
+            """, (session['username'],))
+            phones = cursor.fetchall()
+            
+        return render_template('user_details.html', user=user, phones=phones)
+    finally:
+        conn.close()
 
 @app.route('/dashboard')
 @login_required
@@ -154,35 +181,101 @@ def dashboard():
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            #Fetch items with their locations
+            # Get total counts for stats
             cursor.execute("""
-                           SELECT i.*, p.roomNum, p.shelfNum 
-                           FROM Item i
-                           LEFT JOIN Piece p on i.ItemID = p.ItemID""")
+                SELECT 
+                    (SELECT COUNT(*) FROM Item) as total_items,
+                    (SELECT COUNT(*) FROM Ordered) as total_orders,
+                    (SELECT COUNT(*) FROM DonatedBy WHERE MONTH(donateDate) = MONTH(CURRENT_DATE())) as monthly_donations,
+                    (SELECT COUNT(*) FROM Ordered WHERE MONTH(orderDate) = MONTH(CURRENT_DATE())) as monthly_orders
+            """)
+            stats = cursor.fetchone()
+            
+            # Get recent activity
+            cursor.execute("""
+                SELECT 'Donation' as type, d.donateDate as date, i.iDescription, p.fname, p.lname
+                FROM DonatedBy d 
+                JOIN Item i ON d.ItemID = i.ItemID
+                JOIN Person p ON d.userName = p.userName
+                UNION ALL
+                SELECT 'Order' as type, o.orderDate as date, NULL as iDescription, p.fname, p.lname
+                FROM Ordered o
+                JOIN Person p ON o.client = p.userName
+                ORDER BY date DESC LIMIT 5
+            """)
+            recent_activity = cursor.fetchall()
+            
+        return render_template('dashboard/index.html', 
+                             stats=stats,
+                             recent_activity=recent_activity)
+    finally:
+        conn.close()
+
+@app.route('/inventory')
+@login_required
+def inventory():
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT i.*, c.mainCategory, c.subCategory, 
+                       p.roomNum, p.shelfNum, l.shelf
+                FROM Item i
+                LEFT JOIN Category c ON i.mainCategory = c.mainCategory 
+                    AND i.subCategory = c.subCategory
+                LEFT JOIN Piece p ON i.ItemID = p.ItemID
+                LEFT JOIN Location l ON p.roomNum = l.roomNum 
+                    AND p.shelfNum = l.shelfNum
+                ORDER BY i.mainCategory, i.subCategory
+            """)
             items = cursor.fetchall()
-            
-            #Fetch recent orders
+        return render_template('dashboard/inventory.html', items=items)
+    finally:
+        conn.close()
+
+@app.route('/orders')
+@login_required
+def orders():
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
             cursor.execute("""
-                           SELECT o.*, pc.fname as ClientFName, pc.lname as ClientLName, ps.fname as SupervisorFName, ps.lname as SupervisorLName, d.status
-                           FROM Ordered o
-                           JOIN Person pc ON o.client = pc.userName
-                           JOIN Person ps ON o.supervisor = ps.userName
-                           JOIN Delivered d ON o.orderID = d.orderID
-                           ORDER BY o.orderDate DESC""")
+                SELECT o.*, 
+                pc.fname as ClientFName, 
+                pc.lname as ClientLName,
+                ps.fname as SupervisorFName,
+                ps.lname as SupervisorLName,
+                MAX(d.status) as status,
+                COUNT(i.ItemID) as item_count
+                FROM Ordered o
+                JOIN Person pc ON o.client = pc.userName
+                JOIN Person ps ON o.supervisor = ps.userName
+                LEFT JOIN Delivered d ON o.orderID = d.orderID
+                LEFT JOIN ItemIn i ON o.orderID = i.orderID
+                GROUP BY o.orderID, o.orderDate, o.orderNotes, o.supervisor, o.client,
+                        pc.fname, pc.lname, ps.fname, ps.lname
+                ORDER BY o.orderDate DESC
+            """)
             orders = cursor.fetchall()
-            
+        return render_template('dashboard/orders.html', orders=orders)
+    finally:
+        conn.close()
+
+@app.route('/donations')
+@login_required
+def donations():
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
             cursor.execute("""
-                SELECT i.ItemID, i.iDescription, i.mainCategory, i.subCategory, 
-                       i.isNew, d.donateDate, p.fname as DonorFName, 
-                       p.lname as DonorLName
-                FROM Item i 
-                JOIN DonatedBy d ON i.ItemID = d.ItemID
+                SELECT d.*, i.iDescription, i.mainCategory, i.subCategory, p.fname, p.lname
+                FROM DonatedBy d
+                JOIN Item i ON d.ItemID = i.ItemID
                 JOIN Person p ON d.userName = p.userName
                 ORDER BY d.donateDate DESC
             """)
             donations = cursor.fetchall()
-            
-            return render_template('dashboard.html', items = items, orders = orders, donations = donations)
+        return render_template('dashboard/donations.html', donations=donations)
     finally:
         conn.close()
 
@@ -225,7 +318,7 @@ def findOrderItemsAuth():
 
 @app.route('/find-Items')
 def find_items():
-    return render_template('Singleitem.html') 
+    return render_template('find_item.html') 
 
 @app.route('/SingleItemAuth', methods=['GET', 'POST'])
 def SingleItemAuth():
@@ -244,15 +337,7 @@ def SingleItemAuth():
         #use fetchall() if you are expecting more than 1 data row
         cursor.close()
         error = None
-        # if(data):
-        #     #creates a session for the the user
-        #     #session is a built in
-        #     session['username'] = username
-        #     return redirect(url_for('home'))
-        # else:
-        #     #returns an error message to the html page
-        #     error = 'Invalid login or username'
-        return render_template('Singleitem.html' ,error=error,posts=data)
+        return render_template('find_item.html' ,error=error,posts=data)
     finally:
         conn.close() 
 
@@ -262,7 +347,7 @@ def staff_required(f):
     def decorated_function(*args, **kwargs):
         if 'username' not in session or 'staff' not in session.get('roles', []):
             flash('You must be logged in as staff to access this feature.', 'error')
-            return redirect(url_for('login'))
+            return redirect(request.referrer or url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -308,23 +393,14 @@ def start_order():
         conn.close()
 
 
-
-
 @app.route('/add-to-order', methods=['GET', 'POST'])
 @staff_required
 def add_to_order():
     conn = get_db()
     try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT DISTINCT mainCategory FROM Item")
-            categories = [row['mainCategory'] for row in cursor.fetchall()] or []
-
-            cursor.execute("SELECT DISTINCT subCategory FROM Item")
-            subcategories = [row['subCategory'] for row in cursor.fetchall()] or []
 
         if request.method == 'POST':
             action = request.form.get('action')
-            print(action)
             if action == 'find_items':
                 # Fetch items based on category and subcategory
                 category = request.form['category']
@@ -378,30 +454,6 @@ def add_to_order():
         return render_template('add_to_order.html', categories=categories, subcategories=subcategories, items=None)
     finally:
         conn.close()
-
-
-# @app.route('/get-items')
-# @staff_required
-# def get_items():
-#     category = request.args.get('category')
-#     subcategory = request.args.get('subcategory')
-
-#     conn = get_db()
-#     try:
-#         with conn.cursor() as cursor:
-#             cursor.execute("""
-#                 SELECT i.ItemID, i.iDescription
-#                 FROM Item i
-#                 LEFT JOIN ItemIn ii ON i.ItemID = ii.ItemID
-#                 WHERE ii.orderID IS NULL
-#                 AND i.mainCategory = %s
-#                 AND i.subCategory = %s
-#             """, (category, subcategory))
-#             items = cursor.fetchall()
-
-#         return jsonify({'items': items})
-#     finally:
-#         conn.close()
 
 # added feature to prepare orders (part 7)
 @app.route('/prepare-order', methods=['GET', 'POST'])

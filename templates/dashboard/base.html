@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dashboard-layout">
+    <nav class="dashboard-nav">
+        <div class="nav-brand">Welcome Home</div>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                Dashboard
+            </a>
+            <a href="{{ url_for('inventory') }}" class="nav-link {% if request.endpoint == 'inventory' %}active{% endif %}">
+                Inventory
+            </a>
+            <a href="{{ url_for('orders') }}" class="nav-link {% if request.endpoint == 'orders' %}active{% endif %}">
+                Orders
+            </a>
+            <a href="{{ url_for('donations') }}" class="nav-link {% if request.endpoint == 'donations' %}active{% endif %}">
+                Donations
+            </a>
+        </div>
+        <div class="nav-user-dropdown">
+            <button class="dropbtn">{{ session['name'] }}</button>
+            <div class="dropdown-content">
+                <a href="{{ url_for('user_details') }}" class="dropdown-item">User Details</a>
+                <a href="{{ url_for('logout') }}" class="dropdown-item">Logout</a>
+            </div>
+        </div>
+    </nav>
+    
+    <main class="dashboard-content">
+        {% block dashboard_content %}{% endblock %}
+    </main>
+</div>
+{% endblock %}
