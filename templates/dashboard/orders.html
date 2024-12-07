@@ -1,0 +1,43 @@
+{% extends "dashboard/base.html" %}
+{% block dashboard_content %}
+<div class="orders-container">
+    <div class="page-header">
+        <h2>Order Management</h2>
+        <div class="action-buttons">
+            <a href="{{ url_for('start_order') }}" class="btn primary">Start New Order</a>
+            <a href="{{ url_for('find_orders') }}" class="btn primary">Find Orders</a>
+            <a href="{{ url_for('add_to_order') }}" class="btn primary">Add to Order</a>
+            <a href="{{ url_for('prepare_order') }}" class="btn primary">Prepare Order</a>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Order ID</th>
+                    <th>Client</th>
+                    <th>Supervisor</th>
+                    <th>Order Date</th>
+                    <th>Status</th>
+                    <th>Items</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>#{{ order.orderID }}</td>
+                    <td>{{ order.ClientFName }} {{ order.ClientLName }}</td>
+                    <td>{{ order.SupervisorFName }} {{ order.SupervisorLName }}</td>
+                    <td>{{ order.orderDate.strftime('%Y-%m-%d') }}</td>
+                    <td><span class="order-status {{ order.status.lower() }}">{{ order.status }}</span></td>
+                    <td>{{ order.item_count }}</td>
+                    <td>{{ order.orderNotes }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "dashboard/base.html" %}
+{% block dashboard_content %}
+<div class="inventory-container">
+    <div class="page-header">
+        <h2>Inventory Management</h2>
+        <div class="action-buttons">
+            <a href="{{ url_for('find_items') }}" class="btn primary">Find Items</a>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Item ID</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Location</th>
+                    <th>Material</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>#{{ item.ItemID }}</td>
+                    <td>{{ item.iDescription }}</td>
+                    <td><span class="item-status {% if item.isNew %}new{% else %}used{% endif %}">
+                        {{ 'New' if item.isNew else 'Used' }}
+                    </span></td>
+                    <td>Room {{ item.roomNum }}, Shelf {{ item.shelfNum }}</td>
+                    <td>{{ item.material }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

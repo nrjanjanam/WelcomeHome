@@ -2,22 +2,22 @@
 {% block dashboard_content %}
 <div class="orders-container">
     <div class="page-header">
-        <h2>Find Orders</h2>
+        <h2>Find Items</h2>
     </div>
 
     <div class="form-section">
-        <form action="/findOrderItemsAuth" method="POST" class="search-form">
+        <form action="/SingleItemAuth" method="POST" class="search-form">
             <div class="form-group">
-                <input type="text" name="OrderID" placeholder="Enter the OrderID" required />
-                <button type="submit" class="btn primary">Search Order</button>
+                <input type="text" name="ItemID" placeholder="Enter the ItemID" required />
+                <button type="submit" class="btn primary">Search Item</button>
             </div>
         </form>
     </div>
 
     {% if request.method == 'POST' %}
-        {% if orders and orders|length > 0 %}
+        {% if posts and posts|length > 0 %}
             <div class="search-result-header">
-                <h3>Results for Order #{{ request.form['OrderID'] }}</h3>
+                <h3>Results for Item #{{ request.form['ItemID'] }}</h3>
             </div>
             <div class="table-responsive">
                 <table class="data-table">
@@ -25,23 +25,21 @@
                         <tr>
                             <th>Item ID</th>
                             <th>Description</th>
-                            <th>Piece Description</th>
                             <th>Room Number</th>
+                            <th>Shelf</th>
                             <th>Shelf Number</th>
-                            <th>Shelf Name</th>
                             <th>Shelf Description</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for item in orders %}
+                        {% for line in posts %}
                         <tr>
-                            <td>#{{ item.ItemID }}</td>
-                            <td>{{ item.ItemDescription or '-'}}</td>
-                            <td>{{ item.PieceDescription or '-' }}</td>
-                            <td>{{ item.roomNum or '-' }}</td>
-                            <td>{{ item.shelfNum or '-' }}</td>
-                            <td>{{ item.ShelfName or '-' }}</td>
-                            <td>{{ item.ShelfDescription or '-' }}</td>
+                            <td>#{{ line.ItemID }}</td>
+                            <td>{{ line.pDescription or '-' }}</td>
+                            <td>{{ line.roomNum or '-' }}</td>
+                            <td>{{ line.shelf or '-' }}</td>
+                            <td>{{ line.shelfNum or '-' }}</td>
+                            <td>{{ line.shelfDescription or '-' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -49,7 +47,7 @@
             </div>
         {% else %}
             <div class="no-results">
-                <p>No items found for Order #{{ request.form['OrderID'] }}</p>
+                <p>No details found for Item #{{ request.form['ItemID'] }}</p>
             </div>
         {% endif %}
     {% endif %}

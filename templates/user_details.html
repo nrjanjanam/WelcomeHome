@@ -1,0 +1,41 @@
+{% extends "dashboard/base.html" %}
+{% block dashboard_content %}
+<div class="user-details-container">
+    <div class="page-header">
+        <h2>User Profile</h2>
+    </div>
+
+    <div class="table-responsive">
+        <table class="data-table">
+            <tr>
+                <th>Username</th>
+                <td>{{ user.userName }}</td>
+            </tr>
+            <tr>
+                <th>Name</th>
+                <td>{{ user.fname }} {{ user.lname }}</td>
+            </tr>
+            <tr>
+                <th>Email</th>
+                <td>{{ user.email }}</td>
+            </tr>
+            <tr>
+                <th>Roles</th>
+                <td>
+                    {% for role in user.roles.split(',') %}
+                        <span class="item-status new">{{ role }}</span>
+                    {% endfor %}
+                </td>
+            </tr>
+            <tr>
+                <th>Phone Numbers</th>
+                <td>
+                    {% for phone in phones %}
+                        <div>{{ phone.phone }}</div>
+                    {% endfor %}
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+{% endblock %}

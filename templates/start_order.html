@@ -1,92 +1,40 @@
-    <!-- <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Start Order</title>
-        <link rel="stylesheet" href="{{ url_for('static', filename='../static/style.css') }}" />
-      </head>
-      <body>
-        <div class="dashboard">
-          <nav class="nav-bar">
-            <div class="nav-brand">Welcome Home</div>
-            <div class="nav-links">
-              <a href="/dashboard" class="nav-link">Dashboard</a>
-              <a href="{{ url_for('logout') }}" class="nav-link logout">Logout</a>
-            </div>
-          </nav>
+{% extends "dashboard/base.html" %}
+{% block dashboard_content %}
+<div class="dashboard-content">
+  <section class="data-section">
+      <h2>Add Items to Current Order</h2>
+      <form method="POST" action="/add-to-order">
+          <!-- Category Dropdown -->
+          <label for="category">Select Category:</label>
+          <select name="category" id="category" required>
+              <option value="" disabled selected>--Select a Category--</option>
+              {% for category in categories %}
+              <option value="{{ category }}" {% if category == selected_category %}selected{% endif %}>{{ category }}</option>
+              {% endfor %}
+          </select>
 
-          <div class="dashboard-content">
-            <section id="start-order" class="data-section">
-              <h2>Start an Order</h2>
-              <div class="form-container">
-                <form method="POST" action="/start-order">
-                  <label for="client_username">Client Username:</label>
-                  <input type="text" id="client_username" name="client_username" placeholder="Enter client username" required />
-                  <button type="submit" class="btn">Start Order</button>
-                </form>
-              </div>
-            </section>
-          </div>
-        </div>
-      </body>
-    </html> -->
+          <!-- Subcategory Dropdown -->
+          <label for="subcategory">Select Subcategory:</label>
+          <select name="subcategory" id="subcategory" required>
+              <option value="" disabled selected>--Select a Subcategory--</option>
+              {% for subcategory in subcategories %}
+              <option value="{{ subcategory }}" {% if subcategory == selected_subcategory %}selected{% endif %}>{{ subcategory }}</option>
+              {% endfor %}
+          </select>
 
-    <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add to Order</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <div class="dashboard">
-        <nav class="nav-bar">
-            <div class="nav-brand">Welcome Home</div>
-            <div class="nav-links">
-                <a href="/dashboard" class="nav-link">Dashboard</a>
-                <a href="{{ url_for('logout') }}" class="nav-link logout">Logout</a>
-            </div>
-        </nav>
+          <!-- Item Dropdown -->
+          {% if items %}
+          <label for="item_id">Select Item:</label>
+          <select name="item_id" id="item_id" required>
+              <option value="" disabled selected>--Select an Item--</option>
+              {% for item in items %}
+              <option value="{{ item['ItemID'] }}">{{ item['ItemID'] }} - {{ item['iDescription'] }}</option>
+              {% endfor %}
+          </select>
+          {% endif %}
 
-        <div class="dashboard-content">
-            <section class="data-section">
-                <h2>Add Items to Current Order</h2>
-                <form method="POST" action="/add-to-order">
-                    <!-- Category Dropdown -->
-                    <label for="category">Select Category:</label>
-                    <select name="category" id="category" required>
-                        <option value="" disabled selected>--Select a Category--</option>
-                        {% for category in categories %}
-                        <option value="{{ category }}" {% if category == selected_category %}selected{% endif %}>{{ category }}</option>
-                        {% endfor %}
-                    </select>
-
-                    <!-- Subcategory Dropdown -->
-                    <label for="subcategory">Select Subcategory:</label>
-                    <select name="subcategory" id="subcategory" required>
-                        <option value="" disabled selected>--Select a Subcategory--</option>
-                        {% for subcategory in subcategories %}
-                        <option value="{{ subcategory }}" {% if subcategory == selected_subcategory %}selected{% endif %}>{{ subcategory }}</option>
-                        {% endfor %}
-                    </select>
-
-                    <!-- Item Dropdown -->
-                    {% if items %}
-                    <label for="item_id">Select Item:</label>
-                    <select name="item_id" id="item_id" required>
-                        <option value="" disabled selected>--Select an Item--</option>
-                        {% for item in items %}
-                        <option value="{{ item['ItemID'] }}">{{ item['ItemID'] }} - {{ item['iDescription'] }}</option>
-                        {% endfor %}
-                    </select>
-                    {% endif %}
-
-                    <button type="submit" class="btn">Add to Order</button>
-                </form>
-            </section>
-        </div>
-    </div>
-</body>
-</html>
+          <button type="submit" class="btn">Add to Order</button>
+      </form>
+  </section>
+</div>
+{% endblock %}
