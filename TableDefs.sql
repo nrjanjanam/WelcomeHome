@@ -149,7 +149,8 @@ INSERT INTO Location (roomNum, shelfNum, shelf, shelfDescription) VALUES
 (1, 1, 'A1', 'Front room, first shelf'),
 (1, 2, 'A2', 'Front room, second shelf'),
 (2, 1, 'B1', 'Storage room, first shelf'),
-(2, 2, 'B2', 'Storage room, second shelf');
+(2, 2, 'B2', 'Storage room, second shelf'),
+(999, 1, "D1", "Delivery room, first shelf");
 
 -- Item Data
 INSERT INTO Item (iDescription, photo, color, isNew, hasPieces, material, mainCategory, subCategory) VALUES

@@ -403,8 +403,62 @@ def add_to_order():
 #     finally:
 #         conn.close()
 
+# added feature to prepare orders (part 7)
+@app.route('/prepare-order', methods=['GET', 'POST'])
+def prepare_order():
+    if request.method == 'POST':
+        # Get orderID or client username from form
+        order_id = request.form.get('orderID')
 
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
 
+            # If orderID is provided
+            if order_id:
+                query = """
+                    SELECT o.orderID, o.orderDate, o.orderNotes, o.client, o.supervisor
+                    FROM Ordered o
+                    WHERE o.orderID = %s;
+                """
+                cursor.execute(query, (order_id,))
+            else:
+                flash("Please provide an Order ID.")
+                return redirect('/prepare-order')
+
+            orders = cursor.fetchall()
+
+            if len(orders) == 0:
+                flash("No orders found.")
+                return redirect('/prepare-order')
+
+            # Update items in the selected order to 'Holding Area'
+            for order in orders:
+                update_query = """
+                    UPDATE Piece p
+                    JOIN ItemIn ii ON p.ItemID = ii.ItemID
+                    SET p.roomNum = 999, p.shelfNum = 1, p.pNotes = 'Ready for delivery'
+                    WHERE ii.orderID = %s;
+                """
+                cursor.execute(update_query, (order['orderID'],))
+
+                mark_items_query = """
+                    UPDATE Item i
+                    JOIN ItemIn ii ON i.ItemID = ii.ItemID
+                    SET i.isNew = FALSE
+                    WHERE ii.orderID = %s;
+                """
+                cursor.execute(mark_items_query, (order['orderID'],))
+
+            conn.commit()
+            flash("Order prepared successfully.")
+        except Exception as e:
+            flash(f"Error preparing order: {e}")
+        finally:
+            cursor.close()
+            conn.close()
+
+    return render_template('prepare_order.html')
 
 
 if __name__ == '__main__':
