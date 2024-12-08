@@ -117,7 +117,7 @@ CREATE TABLE Delivered (
     date DATE NOT NULL,
     PRIMARY KEY (userName, orderID, itemID),
     FOREIGN KEY (userName) REFERENCES Person(userName),
-    FOREIGN KEY (orderID, itemID) REFERENCES ItemIn(orderID, itemID)
+    FOREIGN KEY (ItemID, orderID) REFERENCES ItemIn(ItemID, orderID)
 );
 
 -- Role combination constraints 
