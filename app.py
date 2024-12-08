@@ -104,11 +104,6 @@ def register():
                     flash(f'Invalid phone number format: {phone}', 'error')
                     return render_template('register.html', roles=roles)
                 
-            # Check if user is trying to be both staff and volunteer
-            if 'staff' in selected_roles and 'volunteer' in selected_roles:
-                flash('A person cannot be both staff and volunteer', 'error')
-                return render_template('register.html', roles=roles)
-                
             salt = os.urandom(16).hex()
             hashed_password = f"{salt}:{hash_password(password, salt)}"
             
@@ -135,7 +130,7 @@ def register():
                 
             except pymysql.Error as e:
                 conn.rollback()
-                flash(f'Registration unsuccessful: {str(e)}', 'error')
+                flash(f'Registration unsuccessful: {str(e.args[1])}.', 'error')
                 
         return render_template('register.html', roles = roles)
     
@@ -233,31 +228,93 @@ def inventory():
     finally:
         conn.close()
 
+# Added my Orders feature to see personalized view of orders (Part 8)
 @app.route('/orders')
 @login_required
 def orders():
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT o.*, 
-                pc.fname as ClientFName, 
-                pc.lname as ClientLName,
-                ps.fname as SupervisorFName,
-                ps.lname as SupervisorLName,
-                MAX(d.status) as status,
-                COUNT(i.ItemID) as item_count
-                FROM Ordered o
-                JOIN Person pc ON o.client = pc.userName
-                JOIN Person ps ON o.supervisor = ps.userName
-                LEFT JOIN Delivered d ON o.orderID = d.orderID
-                LEFT JOIN ItemIn i ON o.orderID = i.orderID
-                GROUP BY o.orderID, o.orderDate, o.orderNotes, o.supervisor, o.client,
-                        pc.fname, pc.lname, ps.fname, ps.lname
-                ORDER BY o.orderDate DESC
-            """)
-            orders = cursor.fetchall()
-        return render_template('dashboard/orders.html', orders=orders)
+            user_roles = session.get('roles', [])
+            username = session['username']
+            orders_by_role = {}
+
+            # Client View Query
+            if 'client' in user_roles:
+                cursor.execute("""
+                    SELECT o.orderID, o.orderDate, o.orderNotes,
+                           p.fname as SupervisorFName, p.lname as SupervisorLName,
+                           GROUP_CONCAT(DISTINCT CONCAT(v.fname, ' ', v.lname)) as volunteers,
+                           MAX(d.status) as delivery_status,
+                           COUNT(i.ItemID) as item_count
+                    FROM Ordered o
+                    LEFT JOIN Person p ON o.supervisor = p.userName
+                    LEFT JOIN Delivered d ON o.orderID = d.orderID
+                    LEFT JOIN Person v ON d.userName = v.userName
+                    LEFT JOIN ItemIn i ON o.orderID = i.orderID
+                    WHERE o.client = %s
+                    GROUP BY o.orderID, o.orderDate, o.orderNotes, p.fname, p.lname
+                    ORDER BY o.orderDate DESC, orderID DESC
+                """, (username,))
+                orders_by_role['client'] = cursor.fetchall()
+
+            # Donor View Query
+            if 'donor' in user_roles:
+                cursor.execute("""
+                    SELECT DISTINCT o.orderID, o.orderDate,
+                           i.iDescription, db.donateDate,
+                           MAX(d.status) as order_status
+                    FROM DonatedBy db
+                    JOIN Item i ON db.ItemID = i.ItemID
+                    JOIN ItemIn ii ON i.ItemID = ii.ItemID
+                    JOIN Ordered o ON ii.orderID = o.orderID
+                    LEFT JOIN Delivered d ON o.orderID = d.orderID
+                    WHERE db.userName = %s
+                    GROUP BY o.orderID, o.orderDate, i.iDescription, db.donateDate
+                    ORDER BY o.orderDate DESC, orderID DESC
+                """, (username,))
+                orders_by_role['donor'] = cursor.fetchall()
+
+            # Staff View Query
+            if 'staff' in user_roles:
+                cursor.execute("""
+                    SELECT o.orderID, o.orderDate, o.orderNotes,
+                           pc.fname as ClientFName, pc.lname as ClientLName,
+                           GROUP_CONCAT(DISTINCT CONCAT(v.fname, ' ', v.lname)) as volunteers,
+                           MAX(d.status) as delivery_status,
+                           COUNT(DISTINCT i.ItemID) as item_count
+                    FROM Ordered o
+                    JOIN Person pc ON o.client = pc.userName
+                    LEFT JOIN Delivered del ON o.orderID = del.orderID
+                    LEFT JOIN Person v ON del.userName = v.userName
+                    LEFT JOIN ItemIn i ON o.orderID = i.orderID
+                    LEFT JOIN Delivered d ON o.orderID = d.orderID
+                    WHERE o.supervisor = %s
+                    GROUP BY o.orderID, o.orderDate, o.orderNotes, pc.fname, pc.lname
+                    ORDER BY o.orderDate DESC, o.orderID DESC
+                """, (username,))
+                orders_by_role['staff'] = cursor.fetchall()
+
+            # Volunteer View Query
+            if 'volunteer' in user_roles:
+                cursor.execute("""
+                    SELECT o.orderID, o.orderDate,
+                           p.fname as ClientFName, p.lname as ClientLName,
+                           d.status as delivery_status,
+                           COUNT(i.ItemID) as item_count
+                    FROM Delivered d
+                    JOIN Ordered o ON d.orderID = o.orderID
+                    JOIN Person p ON o.client = p.userName
+                    LEFT JOIN ItemIn i ON o.orderID = i.orderID
+                    WHERE d.userName = %s
+                    GROUP BY o.orderID, o.orderDate, p.fname, p.lname, d.status
+                    ORDER BY o.orderDate DESC, orderID DESC
+                """, (username,))
+                orders_by_role['volunteer'] = cursor.fetchall()
+
+            return render_template('dashboard/orders.html', 
+                                orders=orders_by_role, 
+                                user_roles=user_roles)
     finally:
         conn.close()
 
@@ -268,11 +325,11 @@ def donations():
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-                SELECT d.*, i.iDescription, i.mainCategory, i.subCategory, p.fname, p.lname
+                SELECT d.*, i.iDescription, i.mainCategory, i.subCategory, p.fname, p.lname, i.isNew
                 FROM DonatedBy d
                 JOIN Item i ON d.ItemID = i.ItemID
                 JOIN Person p ON d.userName = p.userName
-                ORDER BY d.donateDate DESC
+                ORDER BY d.donateDate DESC, i.ItemID DESC
             """)
             donations = cursor.fetchall()
         return render_template('dashboard/donations.html', donations=donations)
@@ -511,7 +568,6 @@ def prepare_order():
             conn.close()
 
     return render_template('prepare_order.html')
-
 
 if __name__ == '__main__':
     # app.run( debug = True)

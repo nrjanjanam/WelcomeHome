@@ -287,6 +287,11 @@ select[multiple] {
     color: #f57c00; 
 }
 
+.pending { 
+    background: #6f6f6f;
+    color: #ffffff; 
+}
+
 /* Page Headers */
 .page-header {
     display: flex;
@@ -768,4 +773,34 @@ select[multiple] {
     margin: 1.5rem;
     text-align: center;
     font-weight: 500;
+}
+
+.role-selector {
+    margin: 1.5rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.role-selector select {
+    width: 200px;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    color: #2c3e50;
+}
+
+.view-header {
+    margin: 1.5rem 1.5rem 0;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+    color: #2c3e50;
+}
+
+.view-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
 }
