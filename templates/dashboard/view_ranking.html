@@ -1,0 +1,54 @@
+{% extends "dashboard/base.html" %} {% block dashboard_content %}
+<div class="ranking-container">
+  <div class="page-header">
+    <h2>View Rankings of Volunteers</h2>
+  </div>
+
+  <div class="role-selector">
+    <form method="POST">
+      <label for="rank_date"
+        >Enter Date after which you want the rankings:</label
+      >
+      <input type="date" id="rank_date" name="rank_date" required />
+      <br />
+      <button type="submit" class="btn">Prepare</button>
+    </form>
+  </div>
+  {% if request.method == 'POST' %} {% if volunteers and volunteers|length > 0
+  %}
+  <div class="search-result-header">
+    <h3>Results for Date #{{ request.form['rank_date'] }}</h3>
+  </div>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Username</th>
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Number of Deliveries after #{{ request.form['rank_date'] }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for volunteer in volunteers %}
+        <tr>
+          <td>{{ volunteer.Rank }}</td>
+          <td>{{ volunteer.userName }}</td>
+          <td>{{ volunteer.FirstName }}</td>
+          <td>{{ volunteer.LastName }}</td>
+          <td>{{ volunteer.DeliveryCount }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="no-results">
+    <p>
+      No volunteers have deliveries after date #{{ request.form['rank_date'] }}
+    </p>
+  </div>
+  {% endif %} {% endif %}
+</div>
+{% endblock %}

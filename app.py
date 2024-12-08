@@ -683,6 +683,50 @@ def prepare_order():
 
     return render_template('prepare_order.html')
 
+
+@app.route('/view_ranking', methods=['GET', 'POST'])
+def view_ranking():
+    if request.method == 'POST':
+        rank_date = request.form.get('rank_date')
+        
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            if rank_date:
+                query = '''SELECT 
+                                p.userName,
+                                p.fname AS FirstName,
+                                p.lname AS LastName,
+                                COALESCE(COUNT(d.orderID), 0) AS DeliveryCount
+                            FROM 
+                                Person p
+                            JOIN 
+                                Act a ON p.userName = a.userName
+                            LEFT JOIN 
+                                Delivered d ON p.userName = d.userName
+                            WHERE 
+                                a.roleID = 'Volunteer' AND d.date >= %s
+                            GROUP BY 
+                                p.userName
+                            ORDER BY 
+                                DeliveryCount DESC;'''
+                cursor.execute(query, (rank_date,))
+                data = cursor.fetchall()
+                if not data:
+                    flash('No data found for the given date.', 'error')
+                    return render_template('dashboard/view_ranking.html')
+                
+                return render_template('dashboard/view_ranking.html', volunteers=data)
+            else:
+                flash('Please enter a valid date.', 'error')
+                return redirect('dashboard/view_ranking')
+        finally:
+            cursor.close()
+            conn.close()
+    else:
+        return render_template('dashboard/view_ranking.html')
+    
+
 if __name__ == '__main__':
     # app.run( debug = True)
     # app.run('127.0.0.1', 5000, debug = True)
