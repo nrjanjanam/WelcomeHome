@@ -1,4 +1,4 @@
-DROP DATABASE welcomehome;
+DROP DATABASE IF EXISTS welcomehome;
 
 CREATE DATABASE welcomehome;
 
@@ -112,11 +112,12 @@ CREATE TABLE ItemIn (
 CREATE TABLE Delivered (
     userName VARCHAR(50) NOT NULL,
     orderID INT NOT NULL,
+    itemID INT NOT NULL,
     status VARCHAR(20) NOT NULL,
     date DATE NOT NULL,
-    PRIMARY KEY (userName, orderID),
+    PRIMARY KEY (userName, orderID, itemID),
     FOREIGN KEY (userName) REFERENCES Person(userName),
-    FOREIGN KEY (orderID) REFERENCES Ordered(orderID)
+    FOREIGN KEY (orderID, itemID) REFERENCES ItemIn(orderID, itemID)
 );
 
 -- Role combination constraints 
@@ -288,7 +289,6 @@ INSERT INTO Piece (ItemID, pieceNum, pDescription, length, width, height, roomNu
 (3, 1, 'Seat Base', 20, 20, 5, 2, 3, 'New condition'),
 (3, 2, 'Back Rest', 20, 5, 30, 2, 3, 'Perfect state'),
 (3, 3, 'Armrests', 12, 3, 2, 2, 3, 'Adjustable'),
--- Items with single piece
 (4, 1, 'Main Unit', 48, 30, 4, 2, 1, 'Smart TV complete unit'),
 (5, 1, 'Microwave Body', 20, 15, 12, 2, 1, 'Full unit with turntable'),
 (6, 1, 'Large Pot', 12, 12, 8, 3, 1, 'Like new'),
@@ -348,18 +348,7 @@ INSERT INTO Ordered (orderDate, orderNotes, supervisor, client) VALUES
 ('2024-12-02', 'Fragile items', 'michael_d', 'susan_t'),
 ('2024-12-03', 'Assembly needed', 'john_s', 'david_w'),
 ('2024-12-04', 'After 2 PM', 'michael_d', 'lisa_m'),
-('2024-12-05', 'Ground floor', 'john_s', 'susan_t'),
-('2024-12-06', 'Special handling', 'michael_d', 'david_w'),
-('2024-12-07', 'Multiple items', 'john_s', 'lisa_m'),
-('2024-12-07', 'Urgent delivery', 'michael_d', 'susan_t'),
-('2024-12-07', 'Standard delivery', 'john_s', 'david_w'),
-('2024-12-08', 'With installation', 'michael_d', 'lisa_m'),
-('2024-12-08', 'Careful handling', 'john_s', 'susan_t'),
-('2024-12-08', 'Multiple pieces', 'michael_d', 'david_w'),
-('2024-12-08', 'Heavy items', 'john_s', 'lisa_m'),
-('2024-12-08', 'Basic delivery', 'michael_d', 'susan_t'),
-('2024-12-08', 'Express delivery', 'john_s', 'david_w'),
-('2024-12-08', 'Standard handling', 'michael_d', 'lisa_m');
+('2024-12-05', 'Ground floor', 'john_s', 'susan_t');
 
 -- ItemIn Data
 INSERT INTO ItemIn (ItemID, orderID, found) VALUES
@@ -370,43 +359,31 @@ INSERT INTO ItemIn (ItemID, orderID, found) VALUES
 (5, 4, TRUE),
 (6, 5, TRUE),
 (7, 6, TRUE),
-(8, 7, FALSE),
-(9, 8, TRUE),
-(10, 9, TRUE),
-(11, 10, TRUE),
-(12, 11, TRUE),
-(13, 12, FALSE),
-(14, 13, TRUE),
-(15, 14, TRUE),
-(1, 15, TRUE),
-(2, 16, FALSE),
-(3, 17, TRUE),
-(4, 18, TRUE),
-(5, 19, TRUE),
-(6, 20, FALSE);
+(8, 6, FALSE),
+(9, 6, TRUE),
+(10, 6, TRUE),
+(11, 7, TRUE),
+(12, 8, TRUE),
+(13, 8, FALSE),
+(14, 8, TRUE),
+(15, 9, TRUE);
 
 -- Delivered Data
-INSERT INTO Delivered (userName, orderID, status, date) VALUES
-('mary_j', 1, 'Delivered', '2024-11-16'),
-('james_h', 1, 'Delivered', '2024-11-16'),
-('peter_r', 2, 'Delivered', '2024-11-21'),
-('mary_j', 3, 'Delivered', '2024-11-26'),
-('james_h', 4, 'Delivered', '2024-12-01'),
-('peter_r', 5, 'Delivered', '2024-12-02'),
-('mary_j', 6, 'Delivered', '2024-12-03'),
-('james_h', 7, 'InProgress', '2024-12-04'),
-('peter_r', 8, 'InProgress', '2024-12-05'),
-('mary_j', 9, 'InProgress', '2024-12-06'),
-('james_h', 10, 'Pending', '2024-12-07'),
-('peter_r', 11, 'Pending', '2024-12-07'),
-('mary_j', 12, 'Pending', '2024-12-07'),
-('james_h', 13, 'Pending', '2024-12-08'),
-('peter_r', 14, 'Pending', '2024-12-08'),
-('mary_j', 15, 'Pending', '2024-12-08'),
-('james_h', 16, 'Pending', '2024-12-08'),
-('peter_r', 17, 'Pending', '2024-12-08'),
-('mary_j', 18, 'Pending', '2024-12-08'),
-('james_h', 19, 'Pending', '2024-12-08'),
-('peter_r', 20, 'Pending', '2024-12-08');
+INSERT INTO Delivered (userName, orderID, itemID, status, date) VALUES
+('mary_j', 1, 1, 'Delivered', '2024-11-16'),
+('james_h', 1, 2, 'Delivered', '2024-11-16'),
+('peter_r', 2, 3, 'InProgress', '2024-11-21'),
+('mary_j', 3, 4, 'InProgress', '2024-11-26'),
+('james_h', 4, 5, 'Pending', '2024-12-01'),
+('peter_r', 5, 6, 'InProgress', '2024-12-02'),
+('mary_j', 6, 7, 'Delivered', '2024-12-03'),
+('james_h', 6, 8, 'InProgress', '2024-12-04'),
+('peter_r', 6, 9, 'InProgress', '2024-12-05'),
+('mary_j', 6, 10, 'InProgress', '2024-12-06'),
+('james_h', 7, 11, 'Pending', '2024-12-07'),
+('peter_r', 8, 12, 'Pending', '2024-12-07'),
+('mary_j', 8, 13, 'Pending', '2024-12-07'),
+('james_h', 8, 14, 'Pending', '2024-12-08'),
+('peter_r', 9, 15, 'Pending', '2024-12-08');
 
 commit work;

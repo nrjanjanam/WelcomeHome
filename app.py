@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, json, jsonify, render_template, request, redirect, url_for, session, flash
 import pymysql
 from functools import wraps
 import os
@@ -213,7 +213,7 @@ def inventory():
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-                SELECT i.*, c.mainCategory, c.subCategory, 
+                SELECT DISTINCT i.*, c.mainCategory, c.subCategory, 
                        p.roomNum, p.shelfNum, l.shelf
                 FROM Item i
                 LEFT JOIN Category c ON i.mainCategory = c.mainCategory 
@@ -221,7 +221,7 @@ def inventory():
                 LEFT JOIN Piece p ON i.ItemID = p.ItemID
                 LEFT JOIN Location l ON p.roomNum = l.roomNum 
                     AND p.shelfNum = l.shelfNum
-                ORDER BY i.mainCategory, i.subCategory
+                ORDER BY i.itemID
             """)
             items = cursor.fetchall()
         return render_template('dashboard/inventory.html', items=items)
@@ -245,13 +245,19 @@ def orders():
                     SELECT o.orderID, o.orderDate, o.orderNotes,
                            p.fname as SupervisorFName, p.lname as SupervisorLName,
                            GROUP_CONCAT(DISTINCT CONCAT(v.fname, ' ', v.lname)) as volunteers,
-                           MAX(d.status) as delivery_status,
-                           COUNT(i.ItemID) as item_count
+                           CASE 
+                               WHEN SUM(CASE WHEN d2.status = 'Pending' THEN 1 ELSE 0 END) > 0 THEN 'Pending'
+                               WHEN SUM(CASE WHEN d2.status = 'InProgress' THEN 1 ELSE 0 END) > 0 THEN 'InProgress'
+                               WHEN COUNT(d2.status) = SUM(CASE WHEN d2.status = 'Delivered' THEN 1 ELSE 0 END) THEN 'Delivered'
+                               ELSE 'Pending'
+                           END as delivery_status,
+                           COUNT(DISTINCT i.ItemID) as item_count
                     FROM Ordered o
                     LEFT JOIN Person p ON o.supervisor = p.userName
                     LEFT JOIN Delivered d ON o.orderID = d.orderID
                     LEFT JOIN Person v ON d.userName = v.userName
                     LEFT JOIN ItemIn i ON o.orderID = i.orderID
+                    LEFT JOIN Delivered d2 ON o.orderID = d2.orderID
                     WHERE o.client = %s
                     GROUP BY o.orderID, o.orderDate, o.orderNotes, p.fname, p.lname
                     ORDER BY o.orderDate DESC, orderID DESC
@@ -263,58 +269,83 @@ def orders():
                 cursor.execute("""
                     SELECT DISTINCT o.orderID, o.orderDate,
                            i.iDescription, db.donateDate,
-                           MAX(d.status) as order_status
+                           CASE 
+                               WHEN SUM(CASE WHEN d2.status = 'Pending' THEN 1 ELSE 0 END) > 0 THEN 'Pending'
+                               WHEN SUM(CASE WHEN d2.status = 'InProgress' THEN 1 ELSE 0 END) > 0 THEN 'InProgress'
+                               WHEN COUNT(d2.status) = SUM(CASE WHEN d2.status = 'Delivered' THEN 1 ELSE 0 END) THEN 'Delivered'
+                               ELSE 'Pending'
+                           END as order_status
                     FROM DonatedBy db
                     JOIN Item i ON db.ItemID = i.ItemID
                     JOIN ItemIn ii ON i.ItemID = ii.ItemID
                     JOIN Ordered o ON ii.orderID = o.orderID
                     LEFT JOIN Delivered d ON o.orderID = d.orderID
+                    LEFT JOIN Delivered d2 ON o.orderID = d2.orderID
                     WHERE db.userName = %s
                     GROUP BY o.orderID, o.orderDate, i.iDescription, db.donateDate
                     ORDER BY o.orderDate DESC, orderID DESC
                 """, (username,))
                 orders_by_role['donor'] = cursor.fetchall()
 
-            # Staff View Query
+            # Staff View Query - Get all orders they supervise
             if 'staff' in user_roles:
                 cursor.execute("""
-                    SELECT o.orderID, o.orderDate, o.orderNotes,
-                           pc.fname as ClientFName, pc.lname as ClientLName,
-                           GROUP_CONCAT(DISTINCT CONCAT(v.fname, ' ', v.lname)) as volunteers,
-                           MAX(d.status) as delivery_status,
-                           COUNT(DISTINCT i.ItemID) as item_count
+                SELECT o.orderID, o.orderDate, o.orderNotes, o.supervisor,
+                pc.fname as ClientFName, pc.lname as ClientLName,
+                GROUP_CONCAT(DISTINCT CONCAT(v.fname, ' ', v.lname)) as volunteers,
+                GROUP_CONCAT(DISTINCT v.userName) as volunteer_usernames,
+                 CASE 
+                               WHEN SUM(CASE WHEN d2.status = 'Pending' THEN 1 ELSE 0 END) > 0 THEN 'Pending'
+                               WHEN SUM(CASE WHEN d2.status = 'InProgress' THEN 1 ELSE 0 END) > 0 THEN 'InProgress'
+                               WHEN COUNT(d2.status) = SUM(CASE WHEN d2.status = 'Delivered' THEN 1 ELSE 0 END) THEN 'Delivered'
+                               ELSE 'Pending'
+                           END as delivery_status,
+                COUNT(DISTINCT i.ItemID) as item_count,
+                GROUP_CONCAT(DISTINCT CONCAT(i.iDescription, ' (', i.color, ')')) as item_details
                     FROM Ordered o
-                    JOIN Person pc ON o.client = pc.userName
-                    LEFT JOIN Delivered del ON o.orderID = del.orderID
-                    LEFT JOIN Person v ON del.userName = v.userName
-                    LEFT JOIN ItemIn i ON o.orderID = i.orderID
-                    LEFT JOIN Delivered d ON o.orderID = d.orderID
-                    WHERE o.supervisor = %s
-                    GROUP BY o.orderID, o.orderDate, o.orderNotes, pc.fname, pc.lname
-                    ORDER BY o.orderDate DESC, o.orderID DESC
-                """, (username,))
+                JOIN Person pc ON o.client = pc.userName
+                LEFT JOIN Delivered d ON o.orderID = d.orderID
+                LEFT JOIN Person v ON d.userName = v.userName
+                LEFT JOIN ItemIn ii ON o.orderID = ii.orderID
+                LEFT JOIN Item i ON ii.ItemID = i.ItemID
+                LEFT JOIN Delivered d2 ON o.orderID = d2.orderID
+                GROUP BY o.orderID, o.orderDate, o.orderNotes, o.supervisor, pc.fname, pc.lname
+                ORDER BY o.orderDate DESC, o.orderID DESC
+                """)
                 orders_by_role['staff'] = cursor.fetchall()
 
-            # Volunteer View Query
+            # Volunteer View Query - Get all orders they deliver
             if 'volunteer' in user_roles:
                 cursor.execute("""
-                    SELECT o.orderID, o.orderDate,
-                           p.fname as ClientFName, p.lname as ClientLName,
-                           d.status as delivery_status,
-                           COUNT(i.ItemID) as item_count
-                    FROM Delivered d
-                    JOIN Ordered o ON d.orderID = o.orderID
-                    JOIN Person p ON o.client = p.userName
-                    LEFT JOIN ItemIn i ON o.orderID = i.orderID
-                    WHERE d.userName = %s
-                    GROUP BY o.orderID, o.orderDate, p.fname, p.lname, d.status
-                    ORDER BY o.orderDate DESC, orderID DESC
-                """, (username,))
+                SELECT o.orderID, o.orderDate, o.supervisor,
+                p.fname as ClientFName, p.lname as ClientLName,
+                ps.fname as SupervisorFName, ps.lname as SupervisorLName,
+                CASE 
+                               WHEN SUM(CASE WHEN d2.status = 'Pending' THEN 1 ELSE 0 END) > 0 THEN 'Pending'
+                               WHEN SUM(CASE WHEN d2.status = 'InProgress' THEN 1 ELSE 0 END) > 0 THEN 'InProgress'
+                               WHEN COUNT(d2.status) = SUM(CASE WHEN d2.status = 'Delivered' THEN 1 ELSE 0 END) THEN 'Delivered'
+                               ELSE 'Pending'
+                           END as delivery_status,
+                COUNT(DISTINCT i.ItemID) as item_count,
+                GROUP_CONCAT(DISTINCT d.userName) as volunteer_usernames,
+                GROUP_CONCAT(DISTINCT CONCAT(i.iDescription, ' (', i.color, ')')) as item_details
+                FROM Delivered d
+                JOIN Ordered o ON d.orderID = o.orderID
+                JOIN Person p ON o.client = p.userName
+                JOIN Person ps ON o.supervisor = ps.userName
+                LEFT JOIN ItemIn ii ON o.orderID = ii.orderID
+                LEFT JOIN Item i ON ii.ItemID = i.ItemID
+                LEFT JOIN Delivered d2 ON o.orderID = d2.orderID
+                GROUP BY o.orderID, o.orderDate, o.supervisor, p.fname, p.lname, 
+                        ps.fname, ps.lname
+                ORDER BY o.orderDate DESC, orderID DESC
+                """)
                 orders_by_role['volunteer'] = cursor.fetchall()
 
             return render_template('dashboard/orders.html', 
                                 orders=orders_by_role, 
-                                user_roles=user_roles)
+                                user_roles=user_roles, 
+                                current_user=username)
     finally:
         conn.close()
 
@@ -449,7 +480,6 @@ def start_order():
     finally:
         conn.close()
 
-
 @app.route('/add-to-order', methods=['GET', 'POST'])
 @staff_required
 def add_to_order():
@@ -511,6 +541,90 @@ def add_to_order():
         return render_template('add_to_order.html', categories=categories, subcategories=subcategories, items=None)
     finally:
         conn.close()
+
+# Update order status (Part 10) - Get data
+@app.route('/get_order_details/<int:order_id>', methods=['GET'])
+@login_required
+def get_order_details(order_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT o.orderID, o.orderDate, o.orderNotes, o.supervisor,
+                       pc.fname as ClientFName, pc.lname as ClientLName,
+                       i.ItemID, i.iDescription, i.color, d.status as item_status,
+                       d.userName as assigned_volunteer
+                FROM Ordered o
+                JOIN Person pc ON o.client = pc.userName
+                LEFT JOIN ItemIn ii ON o.orderID = ii.orderID
+                LEFT JOIN Item i ON ii.ItemID = i.ItemID
+                LEFT JOIN Delivered d ON ii.ItemID = d.ItemID
+                WHERE o.orderID = %s
+                ORDER BY i.ItemID
+            """, (order_id,))
+            order_details = cursor.fetchall()
+            
+            # Filter items based on user role
+            user_role = session.get('roles', [])
+            username = session['username']
+            updatable_items = []
+            
+            for item in order_details:
+                if 'staff' in user_role:
+                    updatable_items.append(item)
+                elif 'volunteer' in user_role and item['assigned_volunteer'] == username:
+                    updatable_items.append(item)
+            
+            return jsonify({
+                'order_details': order_details,
+                'updatable_items': updatable_items
+            })
+    finally:
+        conn.close()
+
+# Update order status (Part 10) - Update data
+@app.route('/update_order_status', methods=['POST'])
+@login_required
+def update_order_status():
+    if request.method == 'POST':
+        order_id = request.form.get('orderID')
+        item_updates = request.form.get('item_updates')  # JSON string of item updates
+        username = session['username']
+        
+        conn = get_db()
+        try:
+            with conn.cursor() as cursor:
+                items = json.loads(item_updates)
+                
+                for item in items:
+                    item_id = item['itemId']
+                    new_status = item['status']
+                    
+                    # Check authorization
+                    cursor.execute("""
+                        SELECT 1 FROM Delivered 
+                        WHERE ItemID = %s AND userName = %s
+                        OR EXISTS (
+                            SELECT 1 FROM Ordered 
+                            WHERE orderID = %s AND supervisor = %s
+                        )
+                    """, (item_id, username, order_id, username))
+                    
+                    if cursor.fetchone():
+                        cursor.execute("""
+                            UPDATE Delivered 
+                            SET status = %s, date = CURRENT_DATE()
+                            WHERE ItemID = %s
+                        """, (new_status, item_id))
+                
+                conn.commit()
+                return jsonify({'success': True})
+                
+        except Exception as e:
+            conn.rollback()
+            return jsonify({'success': False, 'error': str(e)})
+        finally:
+            conn.close()
 
 # added feature to prepare orders (part 7)
 @app.route('/prepare-order', methods=['GET', 'POST'])
