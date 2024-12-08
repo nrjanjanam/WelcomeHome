@@ -4,9 +4,11 @@
     <div class="page-header">
         <h2>Order Management</h2>
         <div class="action-buttons">
+            <a href="{{ url_for('find_orders') }}" class="btn primary">Find Orders</a>
             {% if 'staff' in session['roles'] %}
             <a href="{{ url_for('start_order') }}" class="btn primary">Start New Order</a>
-            <a href="{{ url_for('find_orders') }}" class="btn primary">Find Orders</a>
+            {% endif %}
+            {% if 'volunteer' in session['roles'] or 'staff' in session['roles'] or 'client' in session['roles']%}
             <a href="{{ url_for('add_to_order') }}" class="btn primary">Add to Order</a>
             <a href="{{ url_for('prepare_order') }}" class="btn primary">Prepare Order</a>
             {% endif %}
@@ -49,10 +51,13 @@
                             <th>Volunteers</th>
                             <th>Status</th>
                             <th>Notes</th>
+                            <th>Actions</th>
                         {% elif role == 'volunteer' %}
                             <th>Client</th>
-                            <th>Items</th>
+                            <th>Supervisor</th>
+                            <th>No of Items</th>
                             <th>Status</th>
+                            <th>Actions</th>
                         {% endif %}
                     </tr>
                 </thead>
@@ -77,10 +82,25 @@
                             <td>{{ order.volunteers or '-' }}</td>
                             <td><span class="order-status {{ order.delivery_status.lower() }}">{{ order.delivery_status }}</span></td>
                             <td>{{ order.orderNotes or '-' }}</td>
+                            <td>
+                                <button onclick="openStatusModal('{{ order.orderID }}', '{{ order.delivery_status }}', '{{ order.ClientFName }} {{ order.ClientLName }}', '{{ order.supervisor }}', '{{ order.volunteer_usernames }}', '{{ order.item_count }}', '{{ order.item_details }}')" 
+                                    class="btn-icon {% if order.delivery_status == 'Delivered' %}disabled{% endif %}" 
+                                    {% if order.delivery_status == 'Delivered' %}disabled{% endif %}>
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                            </td>
                         {% elif role == 'volunteer' %}
                             <td>{{ order.ClientFName }} {{ order.ClientLName }}</td>
+                            <td>{{ order.SupervisorFName }} {{ order.SupervisorLName }}</td>
                             <td>{{ order.item_count }}</td>
                             <td><span class="order-status {{ order.delivery_status.lower() }}">{{ order.delivery_status }}</span></td>
+                            <td>
+                                <button onclick="openStatusModal('{{ order.orderID }}', '{{ order.delivery_status }}', '{{ order.ClientFName }} {{ order.ClientLName }}', '{{ order.supervisor }}', '{{ order.volunteer_usernames }}', '{{ order.item_count }}', '{{ order.item_details }}')" 
+                                    class="btn-icon {% if order.delivery_status == 'Delivered' %}disabled{% endif %}" 
+                                    {% if order.delivery_status == 'Delivered' %}disabled{% endif %}>
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                            </td>
                         {% endif %}
                     </tr>
                     {% endfor %}
@@ -89,19 +109,42 @@
         </div>
         {% else %}
         <div class="no-results">
-            {% if role == 'client' %}
-                <p>You don't have any orders yet.</p>
-            {% elif role == 'donor' %}
-                <p>You haven't made any donations yet.</p>
-            {% elif role == 'staff' %}
+            {% if role == 'staff' %}
                 <p>No orders found in the system.</p>
             {% elif role == 'volunteer' %}
                 <p>No deliveries assigned to you yet.</p>
+            {% elif role == 'client' %}
+                <p>No orders found in the system.</p>
+            {% elif role == 'donor' %}
+                <p>No donations have been ordered.</p>
             {% endif %}
         </div>
         {% endif %}
     </div>
     {% endfor %}
+</div>
+
+<!-- Status Update Modal -->
+<div id="statusModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Update Order Status</h2>
+        <div class="order-details">
+            <p><strong>Order ID:</strong> #<span id="modalOrderId"></span></p>
+            <p><strong>Client:</strong> <span id="modalClient"></span></p>
+            <p><strong>Current Status:</strong> <span id="modalCurrentStatus"></span></p>
+        </div>
+        <form id="statusUpdateForm" method="POST" action="{{ url_for('update_order_status') }}">
+            <input type="hidden" id="orderID" name="orderID">
+            <div id="itemStatusContainer">
+                <!-- Item status updates will be dynamically added here -->
+            </div>
+            <div class="modal-actions">
+                <button type="submit" class="btn-save">Save Changes</button>
+                <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>
@@ -116,6 +159,88 @@ function updateOrderView(role) {
 window.onload = function() {
     const firstRole = document.getElementById('roleFilter').value;
     updateOrderView(firstRole);
+}
+
+// Modal functionality
+const modal = document.getElementById("statusModal");
+const span = document.getElementsByClassName("close")[0];
+
+async function openStatusModal(orderId, currentStatus, client, supervisor, volunteerUsernames) {
+    const currentUser = "{{ session['username'] }}";
+    const volunteers = volunteerUsernames.split(',').map(v => v.trim());
+    
+    if (currentUser === supervisor || volunteers.includes(currentUser)) {
+        // Fetch order details
+        const response = await fetch(`/get_order_details/${orderId}`);
+        const data = await response.json();
+        
+        document.getElementById("modalOrderId").textContent = orderId;
+        document.getElementById("modalClient").textContent = client;
+        document.getElementById("orderID").value = orderId;
+        
+        // Create status updates for each updatable item
+        const container = document.getElementById("itemStatusContainer");
+        container.innerHTML = '';
+        
+        data.updatable_items.forEach(item => {
+            container.innerHTML += `
+                <div class="item-status">
+                    <p><strong>${item.iDescription} (${item.color})</strong></p>
+                    <select name="item_${item.ItemID}_status">
+                        <option value="Pending" ${item.item_status === 'Pending' ? 'selected' : ''}>Pending</option>
+                        <option value="InProgress" ${item.item_status === 'InProgress' ? 'selected' : ''}>In Progress</option>
+                        <option value="Delivered" ${item.item_status === 'Delivered' ? 'selected' : ''}>Delivered</option>
+                    </select>
+                </div>
+            `;
+        });
+        
+        // Update form submit handler
+        document.getElementById("statusUpdateForm").onsubmit = function(e) {
+            e.preventDefault();
+            const updates = [];
+            data.updatable_items.forEach(item => {
+                const select = document.querySelector(`select[name="item_${item.ItemID}_status"]`);
+                updates.push({
+                    itemId: item.ItemID,
+                    status: select.value
+                });
+            });
+            
+            const formData = new FormData();
+            formData.append('orderID', orderId);
+            formData.append('item_updates', JSON.stringify(updates));
+            
+            fetch('/update_order_status', {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      location.reload();
+                  } else {
+                      alert('Error updating order status');
+                  }
+              });
+        };
+        
+        modal.style.display = "block";
+    } else {
+        const contactPerson = supervisor ? `supervisor ${supervisor}` : `volunteer(s) ${volunteerUsernames}`;
+        alert(`You are not authorized to update this order. Please contact ${contactPerson}.`);
+    }
+}
+
+function closeModal() {
+    modal.style.display = "none";
+}
+
+span.onclick = closeModal;
+
+window.onclick = function(event) {
+    if (event.target == modal) {
+        closeModal();
+    }
 }
 </script>
 {% endblock %}
