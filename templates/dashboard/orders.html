@@ -4,40 +4,118 @@
     <div class="page-header">
         <h2>Order Management</h2>
         <div class="action-buttons">
+            {% if 'staff' in session['roles'] %}
             <a href="{{ url_for('start_order') }}" class="btn primary">Start New Order</a>
             <a href="{{ url_for('find_orders') }}" class="btn primary">Find Orders</a>
             <a href="{{ url_for('add_to_order') }}" class="btn primary">Add to Order</a>
             <a href="{{ url_for('prepare_order') }}" class="btn primary">Prepare Order</a>
+            {% endif %}
         </div>
     </div>
 
-    <div class="table-responsive">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Order ID</th>
-                    <th>Client</th>
-                    <th>Supervisor</th>
-                    <th>Order Date</th>
-                    <th>Status</th>
-                    <th>Items</th>
-                    <th>Notes</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for order in orders %}
-                <tr>
-                    <td>#{{ order.orderID }}</td>
-                    <td>{{ order.ClientFName }} {{ order.ClientLName }}</td>
-                    <td>{{ order.SupervisorFName }} {{ order.SupervisorLName }}</td>
-                    <td>{{ order.orderDate.strftime('%Y-%m-%d') }}</td>
-                    <td><span class="order-status {{ order.status.lower() }}">{{ order.status }}</span></td>
-                    <td>{{ order.item_count }}</td>
-                    <td>{{ order.orderNotes }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="role-selector">
+        <select id="roleFilter" onchange="updateOrderView(this.value)">
+            {% for role in session['roles'] %}
+            <option value="{{ role }}">View as {{ role|title }}</option>
+            {% endfor %}
+        </select>
     </div>
+
+    {% for role in session['roles'] %}
+    <div class="role-view" id="{{ role }}-view" style="display: none;">
+        <div class="view-header">
+            <h3>{{ role|title }} View</h3>
+        </div>
+        {% if orders[role]|length > 0 %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Order Date</th>
+                        {% if role == 'client' %}
+                            <th>Supervisor</th>
+                            <th>Volunteer</th>
+                            <th>Items</th>
+                            <th>Status</th>
+                            <th>Notes</th>
+                        {% elif role == 'donor' %}
+                            <th>Item Description</th>
+                            <th>Donation Date</th>
+                            <th>Status</th>
+                        {% elif role == 'staff' %}
+                            <th>Client</th>
+                            <th>No of Items</th>
+                            <th>Volunteers</th>
+                            <th>Status</th>
+                            <th>Notes</th>
+                        {% elif role == 'volunteer' %}
+                            <th>Client</th>
+                            <th>Items</th>
+                            <th>Status</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders[role] %}
+                    <tr>
+                        <td>#{{ order.orderID }}</td>
+                        <td>{{ order.orderDate.strftime('%Y-%m-%d') }}</td>
+                        {% if role == 'client' %}
+                            <td>{{ order.SupervisorFName }} {{ order.SupervisorLName }}</td>
+                            <td>{{ order.volunteers or '-' }}</td>
+                            <td>{{ order.item_count }}</td>
+                            <td><span class="order-status {{ order.delivery_status.lower() }}">{{ order.delivery_status }}</span></td>
+                            <td>{{ order.orderNotes or '-' }}</td>
+                        {% elif role == 'donor' %}
+                            <td>{{ order.iDescription }}</td>
+                            <td>{{ order.donateDate.strftime('%Y-%m-%d') }}</td>
+                            <td><span class="order-status {{ order.order_status.lower() }}">{{ order.order_status }}</span></td>
+                        {% elif role == 'staff' %}
+                            <td>{{ order.ClientFName }} {{ order.ClientLName }}</td>
+                            <td>{{ order.item_count }}</td>
+                            <td>{{ order.volunteers or '-' }}</td>
+                            <td><span class="order-status {{ order.delivery_status.lower() }}">{{ order.delivery_status }}</span></td>
+                            <td>{{ order.orderNotes or '-' }}</td>
+                        {% elif role == 'volunteer' %}
+                            <td>{{ order.ClientFName }} {{ order.ClientLName }}</td>
+                            <td>{{ order.item_count }}</td>
+                            <td><span class="order-status {{ order.delivery_status.lower() }}">{{ order.delivery_status }}</span></td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="no-results">
+            {% if role == 'client' %}
+                <p>You don't have any orders yet.</p>
+            {% elif role == 'donor' %}
+                <p>You haven't made any donations yet.</p>
+            {% elif role == 'staff' %}
+                <p>No orders found in the system.</p>
+            {% elif role == 'volunteer' %}
+                <p>No deliveries assigned to you yet.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
 </div>
+
+<script>
+function updateOrderView(role) {
+    document.querySelectorAll('.role-view').forEach(view => {
+        view.style.display = 'none';
+    });
+    document.getElementById(`${role}-view`).style.display = 'block';
+}
+
+// Show the first role view by default
+window.onload = function() {
+    const firstRole = document.getElementById('roleFilter').value;
+    updateOrderView(firstRole);
+}
+</script>
 {% endblock %}
