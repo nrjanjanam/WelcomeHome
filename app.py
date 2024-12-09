@@ -795,7 +795,7 @@ def prepare_order():
                 update_query = """
                     UPDATE Piece p
                     JOIN ItemIn ii ON p.ItemID = ii.ItemID
-                    SET p.roomNum = 999, p.shelfNum = 1, p.pNotes = 'Ready for delivery'
+                    SET p.roomNum = 4, p.shelfNum = 3, p.pNotes = 'Ready for delivery'
                     WHERE ii.orderID = %s;
                 """
                 cursor.execute(update_query, (order['orderID'],))
@@ -817,6 +817,53 @@ def prepare_order():
             conn.close()
 
     return render_template('prepare_order.html')
+
+
+@app.route('/view_ranking', methods=['GET', 'POST'])
+def view_ranking():
+    if request.method == 'POST':
+        rank_date = request.form.get('rank_date')
+        
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            if rank_date:
+                query = '''SELECT 
+                                p.userName,
+                                p.fname AS FirstName,
+                                p.lname AS LastName,
+                                COALESCE(COUNT(d.orderID), 0) AS DeliveryCount
+                            FROM 
+                                Person p
+                            JOIN 
+                                Act a ON p.userName = a.userName
+                            LEFT JOIN 
+                                Delivered d ON p.userName = d.userName
+                            WHERE 
+                                a.roleID = 'Volunteer' AND d.date >= %s
+                            GROUP BY 
+                                p.userName
+                            ORDER BY 
+                                DeliveryCount DESC;'''
+                cursor.execute(query, (rank_date,))
+                data = cursor.fetchall()
+                if not data:
+                    flash('No data found for the given date.', 'error')
+                    return render_template('dashboard/view_ranking.html')
+                
+                return render_template('dashboard/view_ranking.html', volunteers=data)
+            else:
+                flash('Please enter a valid date.', 'error')
+                return redirect('dashboard/view_ranking')
+        finally:
+            cursor.close()
+            conn.close()
+    else:
+        return render_template('dashboard/view_ranking.html')
+    
+
+
+
 def validate_donor(conn, donor_id):
     """Validates if the user is a registered donor."""
     try:
