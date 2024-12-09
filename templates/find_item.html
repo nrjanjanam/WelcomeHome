@@ -29,7 +29,6 @@
                     <thead>
                         <tr>
                             <th>Item ID</th>
-                            <th>Item Description</th>
                             <th>Description</th>
                             <th>Room Number</th>
                             <th>Shelf</th>
@@ -41,7 +40,6 @@
                         {% for line in posts %}
                         <tr>
                             <td>#{{ line.ItemID }}</td>
-                            <td>{{ line.iDescription or '-'}}</td>
                             <td>{{ line.pDescription or '-' }}</td>
                             <td>{{ line.roomNum or '-' }}</td>
                             <td>{{ line.shelf or '-' }}</td>

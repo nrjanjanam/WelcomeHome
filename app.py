@@ -890,8 +890,6 @@ def add_donation_details(donor_id):
             sub_categories = request.form.getlist('subCategories[]')
             colors = request.form.getlist('colors[]')
             is_news = request.form.getlist('isNews[]')
-            room_nums = request.form.getlist('roomNums[]')
-            shelf_nums = request.form.getlist('shelfNums[]')
             has_pieces_list = request.form.getlist('hasPieces[]')
             materials = request.form.getlist('materials[]')
 
@@ -915,8 +913,7 @@ def add_donation_details(donor_id):
                     cursor.execute("""
                         INSERT INTO Item (iDescription, color, isNew, hasPieces, material, mainCategory, subCategory)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """, (description, colors[idx], is_news[idx] == 'true', has_pieces_list[idx] == 'true', materials[idx],
-                          main_categories[idx], sub_categories[idx]))
+                    """, (description, colors[idx], is_news[idx] == 'true', has_pieces_list[idx] == 'true', materials[idx], main_categories[idx], sub_categories[idx]))
                     conn.commit()
 
                     # Retrieve the generated ItemID
@@ -937,55 +934,36 @@ def add_donation_details(donor_id):
                         'description': description
                     })
 
-                    # Handle pieces logic
-                    if has_pieces_list[idx] == 'true':  # If the item has pieces
+                    # Handle pieces if the item has pieces
+                    if has_pieces_list[idx] == 'true':
                         piece_descriptions = request.form.getlist(f'pieceDescriptions_{idx + 1}[]')
                         lengths = request.form.getlist(f'lengths_{idx + 1}[]')
                         widths = request.form.getlist(f'widths_{idx + 1}[]')
                         heights = request.form.getlist(f'heights_{idx + 1}[]')
+                        room_nums = request.form.getlist(f'roomNums_{idx + 1}[]')
+                        shelf_nums = request.form.getlist(f'shelfNums_{idx + 1}[]')
                         p_notes = request.form.getlist(f'pNotes_{idx + 1}[]')
 
-                        # Ensure location exists
-                        cursor.execute("""
-                            SELECT 1 FROM Location WHERE roomNum = %s AND shelfNum = %s
-                        """, (room_nums[idx], shelf_nums[idx]))
-                        location_exists = cursor.fetchone()
-
-                        if not location_exists:
-                            cursor.execute("""
-                                INSERT INTO Location (roomNum, shelfNum, shelf, shelfDescription)
-                                VALUES (%s, %s, %s, %s)
-                            """, (room_nums[idx], shelf_nums[idx], f"Shelf-{shelf_nums[idx]}", "Auto-created location"))
-                            conn.commit()
-
                         for j, p_description in enumerate(piece_descriptions):
-                            # Insert each piece into the Piece table
+                            # Check if the location exists in the Location table
+                            cursor.execute("""
+                                SELECT 1 FROM Location WHERE roomNum = %s AND shelfNum = %s
+                            """, (room_nums[j], shelf_nums[j]))
+                            location_exists = cursor.fetchone()
+
+                            # Insert location if it doesn't exist
+                            if not location_exists:
+                                cursor.execute("""
+                                    INSERT INTO Location (roomNum, shelfNum, shelf, shelfDescription)
+                                    VALUES (%s, %s, %s, %s)
+                                """, (room_nums[j], shelf_nums[j], f"Shelf-{shelf_nums[j]}", "Auto-created location"))
+                                conn.commit()
+
+                            # Insert the piece into the Piece table
                             cursor.execute("""
                                 INSERT INTO Piece (ItemID, pieceNum, pDescription, length, width, height, roomNum, shelfNum, pNotes)
                                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                            """, (item_id, j + 1, p_description, lengths[j], widths[j], heights[j],
-                                  room_nums[idx], shelf_nums[idx], p_notes[j]))
-                        conn.commit()
-                    else:  # If the item does not have pieces
-                        # Ensure location exists
-                        cursor.execute("""
-                            SELECT 1 FROM Location WHERE roomNum = %s AND shelfNum = %s
-                        """, (room_nums[idx], shelf_nums[idx]))
-                        location_exists = cursor.fetchone()
-
-                        if not location_exists:
-                            cursor.execute("""
-                                INSERT INTO Location (roomNum, shelfNum, shelf, shelfDescription)
-                                VALUES (%s, %s, %s, %s)
-                            """, (room_nums[idx], shelf_nums[idx], f"Shelf-{shelf_nums[idx]}", "Auto-created location"))
-                            conn.commit()
-
-                        # Treat the item itself as a piece
-                        cursor.execute("""
-                            INSERT INTO Piece (ItemID, pieceNum, pDescription, length, width, height, roomNum, shelfNum, pNotes)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        """, (item_id, 1, description, 0, 0, 0, room_nums[idx], shelf_nums[idx],
-                              "Item itself stored as a piece"))
+                            """, (item_id, j + 1, p_description, lengths[j], widths[j], heights[j], room_nums[j], shelf_nums[j], p_notes[j]))
                         conn.commit()
 
             # Pass captured data to the frontend
@@ -1012,7 +990,6 @@ def add_donation_details(donor_id):
         return jsonify({'success': False, 'message': str(ve)}), 400
     finally:
         conn.close()
-
 
 
 
