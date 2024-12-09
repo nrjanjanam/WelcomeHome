@@ -410,24 +410,72 @@ def find_items():
 
 @app.route('/SingleItemAuth', methods=['GET', 'POST'])
 def SingleItemAuth():
-    #grabs information from the forms
-    ItemID = request.form['ItemID']
-    # password = request.form['password']
-    conn = get_db()
-    #cursor used to send queries
+    # Grab information from the form
+    ItemID = request.form.get('ItemID')  # Use get() to handle missing keys gracefully
+    if not ItemID:
+        return render_template('Singleitem.html', error="ItemID is required.", posts=[])
+
+    conn = get_db()  # Get the database connection
+
     try:
         cursor = conn.cursor()
-        #executes query
-        query = 'Select ItemID,pDescription, p.roomNum, p.shelfNum,shelf,shelfDescription from Piece p left join Location l on p.roomNum=l.roomNum and p.shelfNum=l.shelfNum where ItemID=%s'
-        cursor.execute(query, ItemID)#, password))
-        #stores the results in a variable
-        data = cursor.fetchall()
-        #use fetchall() if you are expecting more than 1 data row
-        cursor.close()
-        error = None
-        return render_template('find_item.html' ,error=error,posts=data)
+        
+        # Check if the item has pieces
+        piece_check_query = "SELECT COUNT(*) AS piece_count FROM Piece WHERE ItemID = %s"
+        cursor.execute(piece_check_query, (ItemID,))
+        piece_count = cursor.fetchone()['piece_count']
+
+        if piece_count == 0:
+            # If no pieces, fetch basic item details
+            item_query = "SELECT ItemID, iDescription FROM Item WHERE ItemID = %s"
+            cursor.execute(item_query, (ItemID,))
+            item_data = cursor.fetchone()
+
+            # If no item found, return an error
+            if not item_data:
+                return render_template(
+                    'find_item.html',
+                    error=f"No data found for ItemID: {ItemID}",
+                    posts=[]
+                )
+
+            # Return data for items without pieces
+            posts = [{
+                "ItemID": item_data["ItemID"],
+                "iDescription":None,
+                "pDescription": item_data["iDescription"],
+                "roomNum": None,
+                "shelfNum": None,
+                "shelf": None,
+                "shelfDescription": None
+            }]
+        else:
+            # If pieces exist, fetch item and piece details
+            piece_query = """
+                SELECT 
+                    i.ItemID, 
+                    i.iDescription, 
+                    p.pDescription, 
+                    p.roomNum, 
+                    p.shelfNum, 
+                    l.shelf, 
+                    l.shelfDescription 
+                FROM Item i 
+                LEFT JOIN Piece p ON i.ItemID = p.ItemID 
+                LEFT JOIN Location l ON p.roomNum = l.roomNum AND p.shelfNum = l.shelfNum 
+                WHERE i.ItemID = %s
+            """
+            cursor.execute(piece_query, (ItemID,))
+            posts = cursor.fetchall()
+
+        # Render template with data
+        return render_template('find_item.html', error=None, posts=posts)
+
+    except Exception as e:
+        return render_template('find_item.html', error=f"An error occurred: {str(e)}", posts=[])
+
     finally:
-        conn.close() 
+        conn.close()  # Ensure the connection is always closed
 
 # Ensure the user is logged in and is a staff member
 def staff_required(f):
@@ -456,6 +504,11 @@ def start_order():
                     flash('Client username does not exist.', 'error')
                     return render_template('start_order.html')
 
+                # Check if the username is the staff's own username
+                if client_username == session['username']:
+                    flash('You cannot create an order for yourself.', 'error')
+                    return render_template('start_order.html')
+
                 # Create a new order
                 cursor.execute("""
                     INSERT INTO Ordered (client, supervisor, orderDate)
@@ -467,6 +520,13 @@ def start_order():
                 cursor.execute("SELECT LAST_INSERT_ID() AS orderID")
                 order_id = cursor.fetchone()['orderID']
 
+                # Insert an initial status entry in the Delivered table
+                cursor.execute("""
+                    INSERT INTO Delivered (userName, orderID, status, date)
+                    VALUES (%s, %s, 'InProgress', NOW())
+                """, (session['username'], order_id))
+                conn.commit()
+
                 # Store order ID in session
                 session['orderID'] = order_id
                 flash(f"Order created successfully! Order ID: {order_id}", 'success')
@@ -477,70 +537,145 @@ def start_order():
     except pymysql.Error as e:
         conn.rollback()
         flash(f"Error creating order: {str(e)}", 'error')
+        return render_template('start_order.html')
     finally:
         conn.close()
+
+
 
 @app.route('/add-to-order', methods=['GET', 'POST'])
 @staff_required
 def add_to_order():
     conn = get_db()
     try:
+        # Ensure orderID exists in the session
+        if 'orderID' not in session:
+            flash("Please start a new order before adding items.", "error")
+            return redirect(url_for('start_order'))
+
+        with conn.cursor() as cursor:
+            # Fetch categories for dropdown
+            cursor.execute("SELECT DISTINCT mainCategory FROM Category")
+            categories = [row['mainCategory'] for row in cursor.fetchall()] or []
+
+        # Initialize variables for rendering
+        selected_category = None
+        selected_subcategory = None
+        items = None
+        subcategories = []
 
         if request.method == 'POST':
             action = request.form.get('action')
-            if action == 'find_items':
-                # Fetch items based on category and subcategory
-                category = request.form['category']
-                subcategory = request.form['subcategory']
-                print(category)
-                print(subcategory)
-                #  ItemID = request.form['ItemID']
 
+            if action == 'find_items':
+                # Fetch selected category and subcategory
+                selected_category = request.form.get('category')
+                selected_subcategory = request.form.get('subcategory')
+
+                # Validate category-subcategory relationship
                 with conn.cursor() as cursor:
-                    cursor.execute("""
-                        SELECT i.ItemID, i.iDescription 
+                    cursor.execute(
+                        """
+                        SELECT 1 
+                        FROM Category
+                        WHERE mainCategory = %s AND subCategory = %s
+                        LIMIT 1
+                        """,
+                        (selected_category, selected_subcategory)
+                    )
+                    combination_exists = cursor.fetchone()
+
+                if not combination_exists:
+                    flash(f"The combination of Category '{selected_category}' and Subcategory '{selected_subcategory}' does not exist.", "error")
+                    return render_template(
+                        'add_to_order.html',
+                        categories=categories,
+                        subcategories=[],
+                        items=None,
+                        selected_category=selected_category,
+                        selected_subcategory=selected_subcategory
+                    )
+
+                # Fetch items for the category and subcategory, excluding items already in any order
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        SELECT i.ItemID, i.iDescription
                         FROM Item i
                         LEFT JOIN ItemIn ii ON i.ItemID = ii.ItemID
-                        WHERE ii.orderID IS NULL 
-                        AND i.mainCategory = %s 
+                        WHERE ii.orderID IS NULL
+                        AND i.mainCategory = %s
                         AND i.subCategory = %s
-                    """, (category, subcategory))
+                        """,
+                        (selected_category, selected_subcategory)
+                    )
                     items = cursor.fetchall()
 
-                print("Fetched Items:", items)  # Debugging
-                return render_template('add_to_order.html', categories=categories, subcategories=subcategories, items=items, selected_category=category, selected_subcategory=subcategory)
+                # Fetch subcategories for the selected category
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        SELECT subCategory 
+                        FROM Category
+                        WHERE mainCategory = %s
+                        """,
+                        (selected_category,)
+                    )
+                    subcategories = [row['subCategory'] for row in cursor.fetchall()]
+
+                return render_template(
+                    'add_to_order.html',
+                    categories=categories,
+                    subcategories=subcategories,
+                    items=items,
+                    selected_category=selected_category,
+                    selected_subcategory=selected_subcategory
+                )
 
             elif action == 'add_to_order':
                 # Add selected item to the current order
                 item_id = request.form.get('item_id')
                 if not item_id:
-                    flash('No item selected. Please select an item to add to the order.', 'error')
+                    flash('No item selected. Please select an item to add to the order.', "error")
                     return redirect(url_for('add_to_order'))
 
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    # Check if the item is already in any order
+                    cursor.execute(
+                        """
+                        SELECT ii.orderID 
+                        FROM ItemIn ii 
+                        WHERE ii.ItemID = %s
+                        LIMIT 1
+                        """,
+                        (item_id,)
+                    )
+                    order_info = cursor.fetchone()
+
+                    if order_info:
+                        flash(f"Item {item_id} is already part of Order {order_info['orderID']} and cannot be added.", "error")
+                        return redirect(url_for('add_to_order'))
+
+                    # Insert the item into the current order
+                    cursor.execute(
+                        """
                         INSERT INTO ItemIn (orderID, ItemID)
                         VALUES (%s, %s)
-                    """, (session['orderID'], item_id))
+                        """,
+                        (session['orderID'], item_id)
+                    )
                     conn.commit()
 
-                flash(f"Item {item_id} added to order {session['orderID']} successfully!", 'success')
+                flash(f"Item {item_id} added to order {session['orderID']} successfully!", "success")
                 return redirect(url_for('dashboard'))
 
-        # For GET requests, fetch categories and subcategories
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT DISTINCT mainCategory FROM Item")
-            categories = [row['mainCategory'] for row in cursor.fetchall()] or []
-
-            cursor.execute("SELECT DISTINCT subCategory FROM Item")
-            subcategories = [row['subCategory'] for row in cursor.fetchall()] or []
-
-        print("Categories:", categories)  # Debugging
-        print("Subcategories:", subcategories)  # Debugging
-
-        return render_template('add_to_order.html', categories=categories, subcategories=subcategories, items=None)
+        # Render initial state
+        return render_template('add_to_order.html', categories=categories, subcategories=subcategories, items=items)
     finally:
         conn.close()
+
+
+
 
 # Update order status (Part 10) - Get data
 @app.route('/get_order_details/<int:order_id>', methods=['GET'])
@@ -682,6 +817,199 @@ def prepare_order():
             conn.close()
 
     return render_template('prepare_order.html')
+def validate_donor(conn, donor_id):
+    """Validates if the user is a registered donor."""
+    try:
+        with conn.cursor() as cursor:
+            # Check if the donor exists in the Person table
+            cursor.execute("SELECT userName FROM Person WHERE userName = %s", (donor_id,))
+            donor = cursor.fetchone()
+            if not donor:
+                return False, 'Donor ID does not exist.'
+
+            # Check if the donor has the 'donor' role in the Act table
+            cursor.execute("""
+                SELECT roleID 
+                FROM Act 
+                WHERE userName = %s AND roleID = 'donor'
+            """, (donor_id,))
+            role = cursor.fetchone()
+            if not role:
+                return False, 'The user is not registered as a donor.'
+
+        # If both checks pass, the donor is valid
+        return True, 'Donor validated successfully.'
+    except pymysql.Error as e:
+        return False, f"Database error: {str(e)}"
+
+
+@app.route('/accept-donations', methods=['GET', 'POST'])
+@staff_required
+def accept_donations():
+    conn = get_db()
+    try:
+        if request.method == 'POST':
+            # Retrieve donor ID from the form
+            donor_id = request.form.get('donor_id')
+
+            # Validate donor
+            is_valid, message = validate_donor(conn, donor_id)
+            if not is_valid:
+                flash(message, 'error')  # Flash error message
+                return render_template('accept_donations.html')
+
+            # Donor is valid, proceed with an alert and redirect
+            add_donation_url = url_for('add_donation_details', donor_id=donor_id)
+            return render_template(
+                'accept_donations.html',
+                success_redirect=True,
+                success_message=message,
+                add_donation_url=add_donation_url
+            )
+
+        # Render the accept donations page
+        return render_template('accept_donations.html')
+
+    except Exception as e:
+        flash(f"An error occurred: {str(e)}", 'error')
+        return render_template('accept_donations.html')
+
+    finally:
+        conn.close()
+
+
+@app.route('/add-donation-details/<donor_id>', methods=['GET', 'POST'])
+@staff_required
+def add_donation_details(donor_id):
+    conn = get_db()
+    captured_data = []  # To store captured ItemIDs and donor details
+    try:
+        if request.method == 'POST':
+            i_descriptions = request.form.getlist('iDescriptions[]')
+            main_categories = request.form.getlist('mainCategories[]')
+            sub_categories = request.form.getlist('subCategories[]')
+            colors = request.form.getlist('colors[]')
+            is_news = request.form.getlist('isNews[]')
+            has_pieces_list = request.form.getlist('hasPieces[]')
+            materials = request.form.getlist('materials[]')
+
+            with conn.cursor() as cursor:
+                # Fetch donor name for capturing details
+                cursor.execute("""
+                    SELECT CONCAT(fname, ' ', lname) AS fullName FROM Person WHERE userName = %s
+                """, (donor_id,))
+                donor_name = cursor.fetchone()['fullName']
+
+                for idx, description in enumerate(i_descriptions):
+                    # Validate category combination
+                    cursor.execute("""
+                        SELECT 1 FROM Category WHERE mainCategory = %s AND subCategory = %s
+                    """, (main_categories[idx], sub_categories[idx]))
+                    category_exists = cursor.fetchone()
+                    if not category_exists:
+                        raise ValueError(f"Invalid category combination: {main_categories[idx]}, {sub_categories[idx]}")
+
+                    # Insert the item into the Item table
+                    cursor.execute("""
+                        INSERT INTO Item (iDescription, color, isNew, hasPieces, material, mainCategory, subCategory)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (description, colors[idx], is_news[idx] == 'true', has_pieces_list[idx] == 'true', materials[idx], main_categories[idx], sub_categories[idx]))
+                    conn.commit()
+
+                    # Retrieve the generated ItemID
+                    cursor.execute("SELECT LAST_INSERT_ID() AS ItemID")
+                    item_id = cursor.fetchone()['ItemID']
+
+                    # Link the item to the donor in the DonatedBy table
+                    cursor.execute("""
+                        INSERT INTO DonatedBy (ItemID, userName, donateDate)
+                        VALUES (%s, %s, NOW())
+                    """, (item_id, donor_id))
+                    conn.commit()
+
+                    # Add captured data to the list
+                    captured_data.append({
+                        'item_id': item_id,
+                        'donor_name': donor_name,
+                        'description': description
+                    })
+
+                    # Handle pieces if the item has pieces
+                    if has_pieces_list[idx] == 'true':
+                        piece_descriptions = request.form.getlist(f'pieceDescriptions_{idx + 1}[]')
+                        lengths = request.form.getlist(f'lengths_{idx + 1}[]')
+                        widths = request.form.getlist(f'widths_{idx + 1}[]')
+                        heights = request.form.getlist(f'heights_{idx + 1}[]')
+                        room_nums = request.form.getlist(f'roomNums_{idx + 1}[]')
+                        shelf_nums = request.form.getlist(f'shelfNums_{idx + 1}[]')
+                        p_notes = request.form.getlist(f'pNotes_{idx + 1}[]')
+
+                        for j, p_description in enumerate(piece_descriptions):
+                            # Check if the location exists in the Location table
+                            cursor.execute("""
+                                SELECT 1 FROM Location WHERE roomNum = %s AND shelfNum = %s
+                            """, (room_nums[j], shelf_nums[j]))
+                            location_exists = cursor.fetchone()
+
+                            # Insert location if it doesn't exist
+                            if not location_exists:
+                                cursor.execute("""
+                                    INSERT INTO Location (roomNum, shelfNum, shelf, shelfDescription)
+                                    VALUES (%s, %s, %s, %s)
+                                """, (room_nums[j], shelf_nums[j], f"Shelf-{shelf_nums[j]}", "Auto-created location"))
+                                conn.commit()
+
+                            # Insert the piece into the Piece table
+                            cursor.execute("""
+                                INSERT INTO Piece (ItemID, pieceNum, pDescription, length, width, height, roomNum, shelfNum, pNotes)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            """, (item_id, j + 1, p_description, lengths[j], widths[j], heights[j], room_nums[j], shelf_nums[j], p_notes[j]))
+                        conn.commit()
+
+            # Pass captured data to the frontend
+            return jsonify({
+                'success': True,
+                'message': 'All items and pieces recorded successfully!',
+                'donor_name': donor_name,
+                'captured_items': captured_data
+            })
+
+        # Fetch dropdown data for the form
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT DISTINCT mainCategory FROM Category")
+            categories = [row['mainCategory'] for row in cursor.fetchall()]
+            cursor.execute("SELECT DISTINCT subCategory FROM Category")
+            subcategories = [row['subCategory'] for row in cursor.fetchall()]
+
+        return render_template('add_donation_details.html', donor_id=donor_id, categories=categories, subcategories=subcategories)
+
+    except pymysql.Error as e:
+        conn.rollback()
+        return jsonify({'success': False, 'message': f"Error: {str(e)}"}), 500
+    except ValueError as ve:
+        return jsonify({'success': False, 'message': str(ve)}), 400
+    finally:
+        conn.close()
+
+
+
+@app.route('/get-subcategories', methods=['POST'])
+def get_subcategories():
+    """Fetch subcategories based on selected main category."""
+    conn = get_db()
+    try:
+        main_category = request.json.get('mainCategory')
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT subCategory FROM Category WHERE mainCategory = %s
+            """, (main_category,))
+            subcategories = [row['subCategory'] for row in cursor.fetchall()]
+        return jsonify(subcategories=subcategories)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
 
 if __name__ == '__main__':
     # app.run( debug = True)

@@ -3,6 +3,18 @@
 <div class="orders-container">
     <div class="page-header">
         <h2>Find Orders</h2>
+          <!-- Display Flash Messages -->
+          {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages">
+              <ul>
+                {% for category, message in messages %}
+                <li class="{{ category }}" style="color: red;">{{ message }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+          {% endwith %}
     </div>
 
     <div class="form-section">

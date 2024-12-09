@@ -1,0 +1,241 @@
+{% extends "dashboard/base.html" %}
+{% block dashboard_content %}
+<div class="dashboard-content">
+    <section class="data-section">
+        <h2>Add Donation Details</h2>
+        <form id="donationForm" method="POST" action="{{ url_for('add_donation_details', donor_id=donor_id) }}">
+            <div id="itemContainer"></div>
+            <button type="button" class="btn" onclick="addItemRow()">Add Item</button>
+            <div class="button-container">
+                <button type="submit" class="btn">Submit Donation</button>
+            </div>
+        </form>
+    </section>
+
+    {% if captured_data %}
+    <section class="summary-section">
+        <h3>Donation Summary</h3>
+        <table class="summary-table">
+            <thead>
+                <tr>
+                    <th>Item ID</th>
+                    <th>Donor Name</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for data in captured_data %}
+                <tr>
+                    <td>{{ data.item_id }}</td>
+                    <td>{{ data.donor_name }}</td>
+                    <td>{{ data.description }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+
+{% if success_redirect %}
+<script>
+    (function showAlertAndRedirect() {
+        alert("{{ success_message }}");
+        window.location.href = "{{ redirect_url }}";
+    })();
+</script>
+{% endif %}
+
+<script>
+    let itemCounter = 0;
+
+    // Prevent form submission if no items are added
+    document.getElementById('donationForm').addEventListener('submit', function (event) {
+    // Prevent submission if no items are added
+    if (itemCounter === 0) {
+        alert("Please add at least one item before submitting the form.");
+        event.preventDefault();
+        return;
+    }
+
+    // Prevent the default form submission to handle via fetch
+    event.preventDefault();
+
+    const formData = new FormData(this);
+
+    fetch(this.action, {
+        method: 'POST',
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Build the alert message
+            let message = `Donation submitted successfully!\nDonor Name: ${data.donor_name}\nItems:\n`;
+            data.captured_items.forEach(item => {
+                message += ` - Item ID: ${item.item_id}, Description: ${item.description}\n`;
+            });
+
+            // Show the alert
+            alert(message);
+
+            // Redirect to the dashboard
+            window.location.href = '/dashboard';
+        } else {
+            // Show error message if submission failed
+            alert(data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An unexpected error occurred. Please try again.');
+    });
+});
+
+
+    // Add a new item dynamically
+    function addItemRow() {
+        itemCounter++;
+        const itemContainer = document.getElementById('itemContainer');
+        const itemSection = document.createElement('div');
+        itemSection.id = `item_${itemCounter}`;
+        itemSection.classList.add('item-section');
+        itemSection.setAttribute('data-item-number', itemCounter);
+
+        itemSection.innerHTML = `
+            <h3>Item <span class="item-number">${itemCounter}</span></h3>
+            <table class="item-table">
+                <tr>
+                    <td><label>Description:</label><input type="text" name="iDescriptions[]" placeholder="Enter item description" required /></td>
+                    <td><label>Main Category:</label>
+                        <select name="mainCategories[]" onchange="fetchSubcategories(this, ${itemCounter})" required>
+                            <option value="" disabled selected>Select Main Category</option>
+                            {% for category in categories %}
+                            <option value="{{ category }}">{{ category }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><label>Sub Category:</label>
+                        <select name="subCategories[]" id="subCategory_${itemCounter}" required>
+                            <option value="" disabled selected>Select Sub Category</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td><label>Color:</label><input type="text" name="colors[]" placeholder="Color" required /></td>
+                    <td><label>Material:</label><input type="text" name="materials[]" placeholder="Material" required /></td>
+                    <td><label>Is New:</label>
+                        <select name="isNews[]" required>
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td><label>Has Pieces:</label>
+                        <select name="hasPieces[]" onchange="togglePieceSection(this, ${itemCounter})" required>
+                            <option value="false" selected>No</option>
+                            <option value="true">Yes</option>
+                        </select>
+                    </td>
+                    <td colspan="2">
+                        <button type="button" class="btn remove-item-btn" onclick="removeItem(${itemCounter})">Remove Item</button>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Section for pieces -->
+            <div id="pieceSection_${itemCounter}" class="piece-section" style="display: none;">
+                <h4>Pieces for Item <span class="item-number">${itemCounter}</span></h4>
+                <table id="pieceTable_${itemCounter}" class="piece-table">
+                    <tr>
+                        <th>Description</th>
+                        <th>Length</th>
+                        <th>Width</th>
+                        <th>Height</th>
+                        <th>Room Number</th>
+                        <th>Shelf Number</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                </table>
+                <button type="button" class="btn add-piece-btn" onclick="addPieceRow(${itemCounter})">Add Piece</button>
+            </div>
+            <hr />
+        `;
+        itemContainer.appendChild(itemSection);
+    }
+
+    // Remove an item section and adjust the counter
+    function removeItem(itemIndex) {
+        const itemSection = document.getElementById(`item_${itemIndex}`);
+        if (itemSection) {
+            itemSection.remove();
+            itemCounter--;
+        }
+    }
+
+    // Fetch subcategories dynamically based on main category
+    function fetchSubcategories(selectElement, itemIndex) {
+        const mainCategory = selectElement.value;
+        const subCategorySelect = document.getElementById(`subCategory_${itemIndex}`);
+        subCategorySelect.innerHTML = `<option value="" disabled selected>Loading...</option>`; // Temporary message
+
+        fetch('/get-subcategories', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ mainCategory }),
+        })
+            .then(response => response.json())
+            .then(data => {
+                subCategorySelect.innerHTML = `<option value="" disabled selected>Select Sub Category</option>`;
+                if (data.subcategories) {
+                    data.subcategories.forEach(subCategory => {
+                        const option = document.createElement('option');
+                        option.value = subCategory;
+                        option.textContent = subCategory;
+                        subCategorySelect.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching subcategories:', error);
+                subCategorySelect.innerHTML = `<option value="" disabled selected>Error loading</option>`;
+            });
+    }
+
+    // Toggle the visibility of the piece section
+    function togglePieceSection(dropdown, itemIndex) {
+        const pieceSection = document.getElementById(`pieceSection_${itemIndex}`);
+        pieceSection.style.display = dropdown.value === "true" ? "block" : "none";
+    }
+
+    // Add a new row to the pieces table dynamically
+    function addPieceRow(itemIndex) {
+        const pieceTable = document.getElementById(`pieceTable_${itemIndex}`);
+        const row = document.createElement('tr');
+
+        row.innerHTML = `
+            <td><input type="text" name="pieceDescriptions_${itemIndex}[]" placeholder="Description" required /></td>
+            <td><input type="number" name="lengths_${itemIndex}[]" placeholder="Length" required /></td>
+            <td><input type="number" name="widths_${itemIndex}[]" placeholder="Width" required /></td>
+            <td><input type="number" name="heights_${itemIndex}[]" placeholder="Height" required /></td>
+            <td><input type="text" name="roomNums_${itemIndex}[]" placeholder="Room Number" required /></td>
+            <td><input type="text" name="shelfNums_${itemIndex}[]" placeholder="Shelf Number" required /></td>
+            <td><input type="text" name="pNotes_${itemIndex}[]" placeholder="Notes" /></td>
+            <td><button type="button" class="btn remove-piece-btn" onclick="removePieceRow(this)">Remove</button></td>
+        `;
+        pieceTable.appendChild(row);
+    }
+
+    // Remove a piece row
+    function removePieceRow(button) {
+        const row = button.closest('tr');
+        if (row) {
+            row.remove();
+        }
+    }
+</script>
+{% endblock %}
