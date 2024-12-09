@@ -132,7 +132,6 @@
         <div class="order-details">
             <p><strong>Order ID:</strong> #<span id="modalOrderId"></span></p>
             <p><strong>Client:</strong> <span id="modalClient"></span></p>
-            <p><strong>Current Status:</strong> <span id="modalCurrentStatus"></span></p>
         </div>
         <form id="statusUpdateForm" method="POST" action="{{ url_for('update_order_status') }}">
             <input type="hidden" id="orderID" name="orderID">
