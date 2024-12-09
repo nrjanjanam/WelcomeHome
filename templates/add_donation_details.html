@@ -51,47 +51,40 @@
 
     // Prevent form submission if no items are added
     document.getElementById('donationForm').addEventListener('submit', function (event) {
-    // Prevent submission if no items are added
-    if (itemCounter === 0) {
-        alert("Please add at least one item before submitting the form.");
-        event.preventDefault();
-        return;
-    }
-
-    // Prevent the default form submission to handle via fetch
-    event.preventDefault();
-
-    const formData = new FormData(this);
-
-    fetch(this.action, {
-        method: 'POST',
-        body: formData,
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Build the alert message
-            let message = `Donation submitted successfully!\nDonor Name: ${data.donor_name}\nItems:\n`;
-            data.captured_items.forEach(item => {
-                message += ` - Item ID: ${item.item_id}, Description: ${item.description}\n`;
-            });
-
-            // Show the alert
-            alert(message);
-
-            // Redirect to the dashboard
-            window.location.href = '/dashboard';
-        } else {
-            // Show error message if submission failed
-            alert(data.message);
+        if (itemCounter === 0) {
+            alert("Please add at least one item before submitting the form.");
+            event.preventDefault();
+            return;
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An unexpected error occurred. Please try again.');
-    });
-});
 
+        // Prevent the default form submission to handle via fetch
+        event.preventDefault();
+
+        const formData = new FormData(this);
+
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                let message = `Donation submitted successfully!\nDonor Name: ${data.donor_name}\nItems:\n`;
+                data.captured_items.forEach(item => {
+                    message += ` - Item ID: ${item.item_id}, Description: ${item.description}\n`;
+                });
+
+                alert(message);
+                window.location.href = '/dashboard';
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An unexpected error occurred. Please try again.');
+        });
+    });
 
     // Add a new item dynamically
     function addItemRow() {
@@ -132,13 +125,15 @@
                     </td>
                 </tr>
                 <tr>
+                    <td><label>Room Number:</label><input type="text" name="roomNums[]" placeholder="Room Number" required /></td>
+                    <td><label>Shelf Number:</label><input type="text" name="shelfNums[]" placeholder="Shelf Number" required /></td>
                     <td><label>Has Pieces:</label>
                         <select name="hasPieces[]" onchange="togglePieceSection(this, ${itemCounter})" required>
                             <option value="false" selected>No</option>
                             <option value="true">Yes</option>
                         </select>
                     </td>
-                    <td colspan="2">
+                    <td>
                         <button type="button" class="btn remove-item-btn" onclick="removeItem(${itemCounter})">Remove Item</button>
                     </td>
                 </tr>
@@ -153,8 +148,6 @@
                         <th>Length</th>
                         <th>Width</th>
                         <th>Height</th>
-                        <th>Room Number</th>
-                        <th>Shelf Number</th>
                         <th>Notes</th>
                         <th>Actions</th>
                     </tr>
@@ -179,7 +172,7 @@
     function fetchSubcategories(selectElement, itemIndex) {
         const mainCategory = selectElement.value;
         const subCategorySelect = document.getElementById(`subCategory_${itemIndex}`);
-        subCategorySelect.innerHTML = `<option value="" disabled selected>Loading...</option>`; // Temporary message
+        subCategorySelect.innerHTML = `<option value="" disabled selected>Loading...</option>`; 
 
         fetch('/get-subcategories', {
             method: 'POST',
@@ -188,22 +181,22 @@
             },
             body: JSON.stringify({ mainCategory }),
         })
-            .then(response => response.json())
-            .then(data => {
-                subCategorySelect.innerHTML = `<option value="" disabled selected>Select Sub Category</option>`;
-                if (data.subcategories) {
-                    data.subcategories.forEach(subCategory => {
-                        const option = document.createElement('option');
-                        option.value = subCategory;
-                        option.textContent = subCategory;
-                        subCategorySelect.appendChild(option);
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching subcategories:', error);
-                subCategorySelect.innerHTML = `<option value="" disabled selected>Error loading</option>`;
-            });
+        .then(response => response.json())
+        .then(data => {
+            subCategorySelect.innerHTML = `<option value="" disabled selected>Select Sub Category</option>`;
+            if (data.subcategories) {
+                data.subcategories.forEach(subCategory => {
+                    const option = document.createElement('option');
+                    option.value = subCategory;
+                    option.textContent = subCategory;
+                    subCategorySelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching subcategories:', error);
+            subCategorySelect.innerHTML = `<option value="" disabled selected>Error loading</option>`;
+        });
     }
 
     // Toggle the visibility of the piece section
@@ -222,8 +215,6 @@
             <td><input type="number" name="lengths_${itemIndex}[]" placeholder="Length" required /></td>
             <td><input type="number" name="widths_${itemIndex}[]" placeholder="Width" required /></td>
             <td><input type="number" name="heights_${itemIndex}[]" placeholder="Height" required /></td>
-            <td><input type="text" name="roomNums_${itemIndex}[]" placeholder="Room Number" required /></td>
-            <td><input type="text" name="shelfNums_${itemIndex}[]" placeholder="Shelf Number" required /></td>
             <td><input type="text" name="pNotes_${itemIndex}[]" placeholder="Notes" /></td>
             <td><button type="button" class="btn remove-piece-btn" onclick="removePieceRow(this)">Remove</button></td>
         `;
