@@ -12,6 +12,11 @@
                 <button type="submit" class="btn primary">Search Item</button>
             </div>
         </form>
+        {% if error %}
+        <div class="error-message">
+          <p style="color: red;">{{ error }}</p>
+        </div>
+        {% endif %}  
     </div>
 
     {% if request.method == 'POST' %}

@@ -1,40 +1,31 @@
 {% extends "dashboard/base.html" %}
 {% block dashboard_content %}
 <div class="dashboard-content">
-  <section class="data-section">
-      <h2>Add Items to Current Order</h2>
-      <form method="POST" action="/add-to-order">
-          <!-- Category Dropdown -->
-          <label for="category">Select Category:</label>
-          <select name="category" id="category" required>
-              <option value="" disabled selected>--Select a Category--</option>
-              {% for category in categories %}
-              <option value="{{ category }}" {% if category == selected_category %}selected{% endif %}>{{ category }}</option>
-              {% endfor %}
-          </select>
+  <section id="start-order" class="data-section">
+    <h2>Start an Order</h2>
 
-          <!-- Subcategory Dropdown -->
-          <label for="subcategory">Select Subcategory:</label>
-          <select name="subcategory" id="subcategory" required>
-              <option value="" disabled selected>--Select a Subcategory--</option>
-              {% for subcategory in subcategories %}
-              <option value="{{ subcategory }}" {% if subcategory == selected_subcategory %}selected{% endif %}>{{ subcategory }}</option>
-              {% endfor %}
-          </select>
+    <!-- Flash messages -->
+    <div class="messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages">
+            <ul>
+                {% for category, message in messages %}
+                <li class="{{ category }}" style="color: red;">{{ message | safe }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+    </div>
 
-          <!-- Item Dropdown -->
-          {% if items %}
-          <label for="item_id">Select Item:</label>
-          <select name="item_id" id="item_id" required>
-              <option value="" disabled selected>--Select an Item--</option>
-              {% for item in items %}
-              <option value="{{ item['ItemID'] }}">{{ item['ItemID'] }} - {{ item['iDescription'] }}</option>
-              {% endfor %}
-          </select>
-          {% endif %}
-
-          <button type="submit" class="btn">Add to Order</button>
+    <div class="form-container">
+      <form method="POST" action="/start-order">
+        <label for="client_username">Client Username:</label>
+        <input type="text" id="client_username" name="client_username" placeholder="Enter client username" required />
+        <button type="submit" class="btn">Start Order</button>
       </form>
+    </div>
   </section>
 </div>
 {% endblock %}

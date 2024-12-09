@@ -1,46 +1,106 @@
 {% extends "dashboard/base.html" %}
 {% block dashboard_content %}
 <div class="dashboard-content">
-<section class="data-section">
-    <h2>Add Items to Current Order</h2>
+    <section class="data-section">
+        <h2>Add Items to Current Order</h2>
 
-    <!-- Step 1: Select Category and Subcategory -->
-    <form method="POST" action="/add-to-order">
-        <input type="hidden" name="action" value="find_items">
-        <label for="category">Select Category:</label>
-        <select name="category" id="category" required>
-            <option value="" disabled selected>--Select a Category--</option>
-            {% for category in categories %}
-            <option value="{{ category }}" {% if category == selected_category %}selected{% endif %}>{{ category }}</option>
-            {% endfor %}
-        </select>
+        <!-- Display flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages">
+            <ul>
+                {% for category, message in messages %}
+                <li class="{{ category }}" style="color: red;">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
 
-        <label for="subcategory">Select Subcategory:</label>
-        <select name="subcategory" id="subcategory" required>
-            <option value="" disabled selected>--Select a Subcategory--</option>
-            {% for subcategory in subcategories %}
-            <option value="{{ subcategory }}" {% if subcategory == selected_subcategory %}selected{% endif %}>{{ subcategory }}</option>
-            {% endfor %}
-        </select>
+        <!-- Step 1: Select Category and Subcategory -->
+        <form method="POST" action="/add-to-order">
+            <input type="hidden" name="action" value="find_items">
 
-        <button type="submit" class="btn">Find Items</button>
-    </form>
+            <label for="category">Select Category:</label>
+            <select name="category" id="category" required>
+                <option value="" disabled {% if not selected_category %}selected{% endif %}>--Select a Category--</option>
+                {% for category in categories %}
+                <option value="{{ category }}" {% if category == selected_category %}selected{% endif %}>{{ category }}</option>
+                {% endfor %}
+            </select>
 
-    <!-- Step 2: Display Items -->
-    {% if items %}
-    <form method="POST" action="/add-to-order">
-        <input type="hidden" name="action" value="add_to_order">
-        <h3>Available Items</h3>
-        <label for="item_id">Select Item:</label>
-        <select name="item_id" id="item_id" required>
-            <option value="" disabled selected>--Select an Item--</option>
-            {% for item in items %}
-            <option value="{{ item['ItemID'] }}">{{ item['ItemID'] }} - {{ item['iDescription'] }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit" class="btn">Add to Order</button>
-    </form>
-    {% endif %}
-</section>
+            <label for="subcategory">Select Subcategory:</label>
+            <select name="subcategory" id="subcategory" required>
+                <option value="" disabled {% if not selected_subcategory %}selected{% endif %}>--Select a Subcategory--</option>
+                {% for subcategory in subcategories %}
+                <option value="{{ subcategory }}" {% if subcategory == selected_subcategory %}selected{% endif %}>{{ subcategory }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" class="btn">Find Items</button>
+        </form>
+
+        <!-- Step 2: Display Items -->
+        {% if selected_category and selected_subcategory %}
+        {% if items %}
+        <form method="POST" action="/add-to-order">
+            <input type="hidden" name="action" value="add_to_order">
+            <h3>Available Items</h3>
+            {% if items|length > 0 %}
+            <label for="item_id">Select Item:</label>
+            <select name="item_id" id="item_id" required>
+                <option value="" disabled selected>--Select an Item--</option>
+                {% for item in items %}
+                <option value="{{ item['ItemID'] }}">{{ item['ItemID'] }} - {{ item['iDescription'] }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn">Add to Order</button>
+            {% else %}
+            <p style="color: red;">No items available for the selected category and subcategory.</p>
+            {% endif %}
+        </form>
+        {% else %}
+        <p style="color: red;">No items available for the selected category and subcategory.</p>
+        {% endif %}
+        {% endif %}
+    </section>
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const categoryDropdown = document.getElementById('category');
+        const subcategoryDropdown = document.getElementById('subcategory');
+
+        // Load subcategories dynamically
+        categoryDropdown.addEventListener('change', function () {
+            const selectedCategory = this.value;
+            subcategoryDropdown.innerHTML = `<option value="" disabled selected>--Loading Subcategories--</option>`;
+
+            fetch('/get-subcategories', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ mainCategory: selectedCategory }),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    subcategoryDropdown.innerHTML = `<option value="" disabled selected>--Select a Subcategory--</option>`;
+                    if (data.subcategories) {
+                        data.subcategories.forEach(subcategory => {
+                            const option = document.createElement('option');
+                            option.value = subcategory;
+                            option.textContent = subcategory;
+                            subcategoryDropdown.appendChild(option);
+                        });
+                    } else {
+                        subcategoryDropdown.innerHTML = `<option value="" disabled>No Subcategories Available</option>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching subcategories:', error);
+                    subcategoryDropdown.innerHTML = `<option value="" disabled>Error Loading Subcategories</option>`;
+                });
+        });
+    });
+</script>
 {% endblock %}
