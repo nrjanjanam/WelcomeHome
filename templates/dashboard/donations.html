@@ -12,6 +12,7 @@
         <table class="data-table">
             <thead>
                 <tr>
+                    <th>Photo</th>
                     <th>Date</th>
                     <th>Item ID</th>
                     <th>Description</th>
@@ -23,6 +24,17 @@
             <tbody>
                 {% for donation in donations %}
                 <tr>
+                    <td class="photo-cell">
+                        {% if donation.photo %}
+                            <div class="photo-thumbnail" onclick="showPhotoModal('data:image/jpeg;base64,{{ donation.photo }}')">
+                                <img src="data:image/jpeg;base64,{{ donation.photo }}" alt="Item Photo">
+                            </div>
+                        {% else %}
+                            <div class="no-photo">
+                                <i class="fas fa-image"></i>
+                            </div>
+                        {% endif %}
+                    </td>
                     <td>{{ donation.donateDate.strftime('%Y-%m-%d') }}</td>
                     <td>#{{ donation.ItemID }}</td>
                     <td>{{ donation.iDescription }}</td>
@@ -37,4 +49,32 @@
         </table>
     </div>
 </div>
+
+<div id="photoModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <img id="modalImage" alt="Full size photo">
+    </div>
+</div>
+
+<script>
+    function showPhotoModal(src) {
+        const modal = document.getElementById('photoModal');
+        const modalImg = document.getElementById('modalImage');
+        
+        modal.style.display = "block";
+        modalImg.src = src;
+    }
+    
+    document.querySelector('.close').onclick = function() {
+        document.getElementById('photoModal').style.display = "none";
+    }
+    
+    window.onclick = function(event) {
+        const modal = document.getElementById('photoModal');
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+    </script>
 {% endblock %}

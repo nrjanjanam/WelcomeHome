@@ -106,6 +106,22 @@
             <h3>Item <span class="item-number">${itemCounter}</span></h3>
             <table class="item-table">
                 <tr>
+                    <td colspan="3">
+                        <div class="form-group">
+                            <label for="photo_${itemCounter}">Item Photo:</label>
+                            <input type="file" 
+                                name="photos[]" 
+                                id="photo_${itemCounter}"
+                                accept="image/*" 
+                                class="form-control" 
+                                onchange="previewImage(this, ${itemCounter})"
+                                required>
+                            <small class="help-text">Maximum file size: 16MB</small>
+                            <div id="imagePreview_${itemCounter}" class="image-preview"></div>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
                     <td><label>Description:</label><input type="text" name="iDescriptions[]" placeholder="Enter item description" required /></td>
                     <td><label>Main Category:</label>
                         <select name="mainCategories[]" onchange="fetchSubcategories(this, ${itemCounter})" required>
@@ -165,6 +181,46 @@
         `;
         itemContainer.appendChild(itemSection);
     }
+
+    // Add this function for image preview
+function previewImage(input, itemNumber) {
+    const preview = document.getElementById(`imagePreview_${itemNumber}`);
+    const file = input.files[0];
+    
+    if (file) {
+        // Validate file size (16MB max)
+        if (file.size > 16 * 1024 * 1024) {
+            alert('File size must be less than 16MB');
+            input.value = '';
+            return;
+        }
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            input.value = '';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            // Create or update preview image
+            let img = preview.querySelector('img');
+            if (!img) {
+                img = document.createElement('img');
+                preview.appendChild(img);
+            }
+            img.src = e.target.result;
+            img.style.display = 'block';
+            img.style.maxWidth = '200px';
+            img.style.maxHeight = '200px';
+            img.style.marginTop = '10px';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        preview.innerHTML = '';
+    }
+}
 
     // Remove an item section and adjust the counter
     function removeItem(itemIndex) {
@@ -237,5 +293,46 @@
             row.remove();
         }
     }
+
+    // For Image preview
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle file input change
+        document.querySelectorAll('input[type="file"]').forEach(input => {
+            input.addEventListener('change', function(e) {
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    
+                    // Validate file size (16MB max)
+                    if (file.size > 16 * 1024 * 1024) {
+                        alert('File size must be less than 16MB');
+                        this.value = '';
+                        return;
+                    }
+                    
+                    // Validate file type
+                    if (!file.type.startsWith('image/')) {
+                        alert('Please select an image file');
+                        this.value = '';
+                        return;
+                    }
+                    
+                    // Create/update preview
+                    let preview = this.nextElementSibling.querySelector('.image-preview');
+                    if (!preview) {
+                        preview = document.createElement('img');
+                        preview.className = 'image-preview';
+                        this.parentNode.appendChild(preview);
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        preview.src = e.target.result;
+                        preview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        });
+    });
 </script>
 {% endblock %}

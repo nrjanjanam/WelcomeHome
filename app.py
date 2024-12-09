@@ -5,6 +5,10 @@ import os
 from config import Config
 from database import get_db, hash_password
 import phonenumbers
+from werkzeug.utils import secure_filename
+import base64
+from PIL import Image
+from io import BytesIO
 
 app = Flask(__name__, static_url_path='/static')
 app.config.from_object(Config)
@@ -356,13 +360,22 @@ def donations():
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-                SELECT d.*, i.iDescription, i.mainCategory, i.subCategory, p.fname, p.lname, i.isNew
+                SELECT d.*, i.iDescription, i.mainCategory, i.subCategory, p.fname, p.lname, i.isNew, i.photo
                 FROM DonatedBy d
                 JOIN Item i ON d.ItemID = i.ItemID
                 JOIN Person p ON d.userName = p.userName
                 ORDER BY d.donateDate DESC, i.ItemID DESC
             """)
             donations = cursor.fetchall()
+            
+            # Convert photo binary data to base64 for each donation
+            for donation in donations:
+                if donation['photo']:
+                    donation['photo'] = base64.b64encode(donation['photo']).decode('utf-8')
+                else:
+                    donation['photo'] = None
+
+
         return render_template('dashboard/donations.html', donations=donations)
     finally:
         conn.close()
@@ -675,8 +688,6 @@ def add_to_order():
         conn.close()
 
 
-
-
 # Update order status (Part 10) - Get data
 @app.route('/get_order_details/<int:order_id>', methods=['GET'])
 @login_required
@@ -889,7 +900,6 @@ def validate_donor(conn, donor_id):
     except pymysql.Error as e:
         return False, f"Database error: {str(e)}"
 
-
 @app.route('/accept-donations', methods=['GET', 'POST'])
 @staff_required
 def accept_donations():
@@ -939,6 +949,7 @@ def add_donation_details(donor_id):
             is_news = request.form.getlist('isNews[]')
             has_pieces_list = request.form.getlist('hasPieces[]')
             materials = request.form.getlist('materials[]')
+            photos = request.files.getlist('photos[]')
 
             with conn.cursor() as cursor:
                 # Fetch donor name for capturing details
@@ -948,6 +959,23 @@ def add_donation_details(donor_id):
                 donor_name = cursor.fetchone()['fullName']
 
                 for idx, description in enumerate(i_descriptions):
+                    photo = photos[idx]
+                    if photo:
+                        # Resize and compress image
+                        img = Image.open(photo)
+                        img = img.convert('RGB')
+                        
+                        # Resize if too large (e.g., max 800x800)
+                        max_size = (800, 800)
+                        img.thumbnail(max_size, Image.LANCZOS)
+                        
+                        # Save to BytesIO
+                        buffer = BytesIO()
+                        img.save(buffer, format="JPEG", quality=85, optimize=True)
+                        photo_data = buffer.getvalue()
+                    else:
+                        photo_data = None
+
                     # Validate category combination
                     cursor.execute("""
                         SELECT 1 FROM Category WHERE mainCategory = %s AND subCategory = %s
@@ -958,9 +986,9 @@ def add_donation_details(donor_id):
 
                     # Insert the item into the Item table
                     cursor.execute("""
-                        INSERT INTO Item (iDescription, color, isNew, hasPieces, material, mainCategory, subCategory)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """, (description, colors[idx], is_news[idx] == 'true', has_pieces_list[idx] == 'true', materials[idx], main_categories[idx], sub_categories[idx]))
+                        INSERT INTO Item (iDescription, photo, color, isNew, hasPieces, material, mainCategory, subCategory)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (description, photo_data, colors[idx], is_news[idx] == 'true', has_pieces_list[idx] == 'true', materials[idx], main_categories[idx], sub_categories[idx]))
                     conn.commit()
 
                     # Retrieve the generated ItemID
@@ -1012,6 +1040,8 @@ def add_donation_details(donor_id):
                                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                             """, (item_id, j + 1, p_description, lengths[j], widths[j], heights[j], room_nums[j], shelf_nums[j], p_notes[j]))
                         conn.commit()
+                    else:
+                        pass
 
             # Pass captured data to the frontend
             return jsonify({
